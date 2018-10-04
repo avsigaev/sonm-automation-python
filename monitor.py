@@ -172,7 +172,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
     if not task_status:
         _, _, status = get_deal_tag_node_num(deal_id)
         if status == 1:
-            log("Worker cannot retrieve Task " + task_id + " on deal " + deal_id +
+            log("Worker cannot retrieve task status" + task_id + " on deal " + deal_id +
                 " (Node " + node_num + "), closing deal")
             close_deal(deal_id)
         if status == 2:
@@ -215,7 +215,7 @@ def start_task_on_deal(deal_id, task_file, node_num, ntag):
 
 def task_valid(deal_id):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
-    task_list = exec_cli("task list " + deal_id + " --timeout=2m --out json")
+    task_list = exec_cli("task list " + deal_id + " --timeout=2m --out json", retry=True)
     if task_list and len(task_list.keys()) > 0:
         task_id = list(task_list.keys())[0]
         task_manager(deal_id, task_id, node_num, ntag)
