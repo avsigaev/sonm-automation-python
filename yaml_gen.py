@@ -34,17 +34,30 @@ def template_bid(config, tag, counterparty=None):
     return bid_template
 
 
+# def template_task(tag):
+#     task_template = {
+#     "container": {
+#         "image": "clavichord/bmi_parser",
+#         "tag": tag,
+#         "env": {
+#             "ARGS": "--project test --testMode --verbose --node" + tag + " --autoThreadCount"
+#         }
+#     }    
+# }
+#     return task_template
+
+
 def template_task(tag):
-    task_template = {
-        "container": {
-            "image": "sonm/eth-claymore:latest",
-            "tag": tag,
-            "env": {
-                "WALLET": "0x417c92fbd944b125a578848de44a4fd9132e0911",
-                "POOL": "eth-eu1.nanopool.org:9999",
-                "WORKER": 6260
-            },
-            "commit_on_stop": False
-        }
+task_template = {
+    "container": {
+        "image": "sonm/eth-claymore:latest",
+        "tag": tag,
+        "env": {
+            "WALLET": "0x417c92fbd944b125a578848de44a4fd9132e0911",
+            "POOL": "eth-eu1.nanopool.org:9999",
+            "WORKER": 6260
+        },
+        "commit_on_stop": False
     }
-    return task_template
+}
+return task_template
