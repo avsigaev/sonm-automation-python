@@ -192,6 +192,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
             log("Closing deal " + deal_id + " ...")
             close_deal(deal_id)
             STATE[int(node_num)] = 1
+            time.sleep(5)
         else:
             log("Task has failed/stopped (" + time_ + " seconds) on deal " + deal_id + " (Node " + node_num +
                 ") before ETA." + " Closing deal and blacklisting counterparty worker's address...")
