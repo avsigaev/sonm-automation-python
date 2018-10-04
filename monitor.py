@@ -35,9 +35,9 @@ def exec_cli(param, retry=False, attempts=3, sleep_time=1):
         log("Failed to execute command: " + ' '.join(command))
         log('\n'.join(errors_))
         return None
-    if str(result.stdout) == "null":
+    if result.stdout.decode("utf-8") == "null":
         return {}
-    return json.loads(str(result.stdout))
+    return json.loads(result.stdout.decode("utf-8"))
 
 
 def save_task_logs(deal_id, task_id, rownum, filename):
