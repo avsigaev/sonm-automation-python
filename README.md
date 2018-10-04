@@ -4,6 +4,12 @@
 
   `git clone git://github.com/avsigaev/sonm-automation-python.git`
   
+**Mac OS X:**  
+  `brew install python3`
+  
+  `pip3 install -r requirements.txt`
+
+**Linux:**
   `apt-get install python3-pip`
   
   `pip3 install -r requirements.txt`
