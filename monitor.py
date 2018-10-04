@@ -234,7 +234,6 @@ def task_valid(deal_id):
 
 
 def deal_manager():
-    num = 0
     deal_ids = get_deals()
     if deal_ids is not None:
         for deal_id in deal_ids:
