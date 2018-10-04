@@ -16,7 +16,7 @@
 
 ## Configuration
 
-- Edit config.yaml to describe hardware configuration needs for your task.
+- Edit config.yaml to describe hardware configuration requirements for your task.
 - Edit *'def template_task'* section in *yaml_gen.py* to describe your task.
 
 ## Run 
