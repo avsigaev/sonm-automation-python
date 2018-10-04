@@ -36,14 +36,14 @@ def template_bid(config, tag, counterparty=None):
 
 # def template_task(tag):
 #     task_template = {
-#     "container": {
-#         "image": "clavichord/bmi_parser",
-#         "tag": tag,
-#         "env": {
-#             "ARGS": "--project test --testMode --verbose --node" + tag + " --autoThreadCount"
-#         }
-#     }    
-# }
+#         "container": {
+#             "image": "clavichord/bmi_parser",
+#             "tag": tag,
+#             "env": {
+#                 "ARGS": "--project test --testMode --verbose --node" + tag + " --autoThreadCount"
+#             }
+#         }    
+#     }
 #     return task_template
 
 
