@@ -172,16 +172,7 @@ def close_deal(deal_id):
 def task_manager(deal_id, task_id, node_num, ntag):
     task_status = exec_cli(["task", "status", deal_id, task_id, "--timeout=2m"], retry=True)
     if not task_status:
-        _, _, status = get_deal_tag_node_num(deal_id)
-        if status == 1:
-            log("Worker cannot retrieve task status" + task_id + " on deal " + deal_id +
-                " (Node " + node_num + "), closing deal")
-            close_deal(deal_id)
-        if status == 2:
-            log("Deal " + deal_id + " (Node " + node_num + ") has gone away")
-        log("Recreating order for Node " + node_num)
-        create_new_order(node_num, ntag)
-        return
+        return close_deal_and_create_order(deal_id, node_num, ntag, task_id)
     status_ = task_status["status"]
     time_ = str(int(float(int(task_status["uptime"]) / 1000000000)))
     if status_ == "SPOOLING":
@@ -207,6 +198,19 @@ def task_manager(deal_id, task_id, node_num, ntag):
             blacklist(deal_id, node_num, ntag)
 
 
+def close_deal_and_create_order(deal_id, node_num, ntag, task_id):
+    _, _, status = get_deal_tag_node_num(deal_id)
+    if status == 1:
+        log("Worker cannot retrieve task status" + task_id + " on deal " + deal_id +
+            " (Node " + node_num + "), closing deal")
+        close_deal(deal_id)
+    if status == 2:
+        log("Deal " + deal_id + " (Node " + node_num + ") has gone away")
+    log("Recreating order for Node " + node_num)
+    create_new_order(node_num, ntag)
+    return
+
+
 def start_task_on_deal(deal_id, task_file, node_num, ntag):
     task = exec_cli(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
     if not task:
@@ -220,6 +224,8 @@ def task_valid(deal_id):
     task_list = exec_cli(["task ", "list", deal_id, "--timeout=2m"], retry=True)
     if task_list and len(task_list.keys()) > 0:
         task_id = list(task_list.keys())[0]
+        if task_id == "error":
+            return close_deal_and_create_order(deal_id, node_num, ntag, task_id)
         task_manager(deal_id, task_id, node_num, ntag)
     else:
         log("Starting task on node " + str(node_num) + "...")
