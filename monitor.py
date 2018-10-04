@@ -221,7 +221,7 @@ def start_task_on_deal(deal_id, task_file, node_num, ntag):
 
 def task_valid(deal_id):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
-    task_list = exec_cli(["task ", "list", deal_id, "--timeout=2m"], retry=True)
+    task_list = exec_cli(["task", "list", deal_id, "--timeout=2m"], retry=True)
     if task_list and len(task_list.keys()) > 0:
         task_id = list(task_list.keys())[0]
         if task_id == "error":
