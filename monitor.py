@@ -199,10 +199,10 @@ def task_manager(deal_id, task_id, node_num, ntag):
             blacklist(deal_id, node_num, ntag)
 
 
-def close_deal_and_create_order(deal_id, node_num, ntag, task_id):
+def close_deal_and_create_order(deal_id, node_num, ntag, task_id=""):
     _, _, status = get_deal_tag_node_num(deal_id)
     if status == 1:
-        log("Worker cannot retrieve task status" + task_id + " on deal " + deal_id +
+        log("Worker cannot retrieve task status " + task_id + " on deal " + deal_id +
             " (Node " + node_num + "), closing deal")
         close_deal(deal_id)
     if status == 2:
@@ -225,9 +225,9 @@ def task_valid(deal_id):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
     task_list = exec_cli(["task", "list", deal_id, "--timeout=2m"], retry=True)
     if task_list and len(task_list.keys()) > 0:
+        if "error" in task_list.keys() or "message" in task_list.keys():
+            return close_deal_and_create_order(deal_id, node_num, ntag)
         task_id = list(task_list.keys())[0]
-        if task_id == "error":
-            return close_deal_and_create_order(deal_id, node_num, ntag, task_id)
         task_manager(deal_id, task_id, node_num, ntag)
     else:
         log("Starting task on node " + str(node_num) + "...")
