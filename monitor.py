@@ -37,7 +37,7 @@ def exec_cli(param, retry=False, attempts=3, sleep_time=1):
         return None
     if str(result.stdout) == "null":
         return {}
-    return json.loads(result.stdout)
+    return json.loads(str(result.stdout))
 
 
 def save_task_logs(deal_id, task_id, rownum, filename):
