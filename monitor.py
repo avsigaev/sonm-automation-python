@@ -66,6 +66,7 @@ def load_cfg():
 
 
 def set_state():
+    STATE.append(0)
     for number in range(CONFIG["numberofnodes"]):
         STATE.append(0)
 
