@@ -3,7 +3,9 @@
 ## Preparations
 
   `git clone git://github.com/avsigaev/sonm-automation-python.git`
+  
   `apt-get install python3-pip`
+  
   `pip3 install -r requirements.txt`
 
 ## Configuration
