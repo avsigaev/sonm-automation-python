@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import base64
 import datetime
 import errno
@@ -17,7 +18,8 @@ from yaml_gen import template_bid, template_task
 
 
 def exec_cli(param, retry=False, attempts=3, sleep_time=1):
-    command = [SONM_CLI] + param.split(" ")
+    command = [SONM_CLI] + param
+    command.append("--json")
     attempt = 1
     errors_ = []
     while True:
@@ -100,7 +102,7 @@ def load_generator():
         bid_file = "out/orders/" + ntag + ".yaml"
         dump_file(bid_, bid_file)
         log("Creating order for Node number " + str(number))
-        order_ = exec_cli("order create " + bid_file + " --out json")
+        order_ = exec_cli(["order", "create", bid_file])
         log("Order for Node " + str(number) + " is " + order_["id"])
         log("Creating task file for Node number " + str(number))
         task_ = template_task(ntag)
@@ -113,8 +115,8 @@ def dump_file(data, filename):
 
 
 def check_orders():
-    orders = exec_cli("order list --timeout=2m --out json")
-    deals = exec_cli("deal list --timeout=2m --out json")
+    orders = exec_cli(["order", "list", "--timeout=2m"])
+    deals = exec_cli(["deal", "list", "--timeout=2m"])
     if orders["orders"] is not None:
         log("Waiting for deals...")
         time.sleep(10)
@@ -133,7 +135,7 @@ def check_state():
 
 
 def get_deals():
-    deal_list_output = exec_cli("deal list --timeout=2m --out json")
+    deal_list_output = exec_cli(["deal", "list", "--timeout=2m"])
     if deal_list_output['deals']:
         for _, v in deal_list_output.items():
             return [d['id'] for d in v]
@@ -142,7 +144,7 @@ def get_deals():
 
 
 def get_deal_tag_node_num(deal_id):
-    deal_status = exec_cli("deal status " + deal_id + " --expand --out json")
+    deal_status = exec_cli(["deal", "status", deal_id, "--expand"])
     ntag = base64.b64decode(deal_status["bid"]["tag"]).decode().strip("\0")
     node_num = ntag.split("_")[len(ntag.split("_")) - 1]
     status = deal_status["deal"]["status"]
@@ -150,25 +152,25 @@ def get_deal_tag_node_num(deal_id):
 
 
 def blacklist(deal_id, node_num, ntag):
-    exec_cli("deal close " + deal_id + " --blacklist worker --json", retry=True)
+    exec_cli(["deal", "close", deal_id, "--blacklist", "worker"], retry=True)
     log("Node " + node_num + " failure, new order will be created...")
     create_new_order(node_num, ntag)
 
 
 def create_new_order(node_num, ntag):  # TODO use this method when deal was disappear
-    bidfile = "out/orders/" + ntag + ".yaml"
-    order = exec_cli("order create " + bidfile + " --out json")
+    bidfile_ = "out/orders/" + ntag + ".yaml"
+    order = exec_cli(["order", "create", bidfile_])
     log("Order for Node " + node_num + " is " + order["id"])
 
 
 def close_deal(deal_id):
-    closed = exec_cli("deal close --json " + deal_id, retry=True)
+    closed = exec_cli(["deal", "close", deal_id], retry=True)
     if "id" in closed[0]:
         log("Closed deal " + deal_id)
 
 
 def task_manager(deal_id, task_id, node_num, ntag):
-    task_status = exec_cli("task status " + deal_id + " " + task_id + " --timeout=2m --out json", retry=True)
+    task_status = exec_cli(["task", "status", deal_id, task_id, "--timeout=2m"], retry=True)
     if not task_status:
         _, _, status = get_deal_tag_node_num(deal_id)
         if status == 1:
@@ -197,7 +199,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
 
             log("Closing deal " + deal_id + " ...")
             close_deal(deal_id)
-            STATE[node_num] = 1
+            STATE[int(node_num)] = 1
         else:
             log("Task has failed/stopped (" + time_ + " seconds) on deal " + deal_id + " (Node " + node_num +
                 ") before ETA." + " Closing deal and blacklisting counterparty worker's address...")
@@ -206,7 +208,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
 
 
 def start_task_on_deal(deal_id, task_file, node_num, ntag):
-    task = exec_cli("task start " + deal_id + " " + task_file + " --timeout=15m --json", retry=True)
+    task = exec_cli(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
     if not task:
         log("Failed to start task on deal " + deal_id +
             ". Closing deal and blacklisting counterparty worker's address...")
@@ -215,7 +217,7 @@ def start_task_on_deal(deal_id, task_file, node_num, ntag):
 
 def task_valid(deal_id):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
-    task_list = exec_cli("task list " + deal_id + " --timeout=2m --out json", retry=True)
+    task_list = exec_cli(["task ", "list", deal_id, "--timeout=2m"], retry=True)
     if task_list and len(task_list.keys()) > 0:
         task_id = list(task_list.keys())[0]
         task_manager(deal_id, task_id, node_num, ntag)
