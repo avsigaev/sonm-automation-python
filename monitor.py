@@ -116,9 +116,9 @@ def dump_file(data, filename):
         yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
 
 
-def check_orders():
-    orders = exec_cli(["order", "list", "--timeout=2m"])
-    deals = exec_cli(["deal", "list", "--timeout=2m"])
+def check_orders(number_of_nodes):
+    orders = exec_cli(["order", "list", "--timeout=2m", "--limit", number_of_nodes])
+    deals = exec_deal_list(number_of_nodes)
     if orders["orders"] is not None:
         log("Waiting for deals...")
         time.sleep(10)
@@ -127,22 +127,26 @@ def check_orders():
         load_generator()
 
 
-def check_state():
+def check_state(number_of_nodes):
     STATE[0] = 1
     if 0 in STATE:
-        check_orders()
+        check_orders(number_of_nodes)
     else:
         log("All tasks are finished")
         exit(0)
 
 
-def get_deals():
-    deal_list_output = exec_cli(["deal", "list", "--timeout=2m"])
+def get_deals(number_of_nodes):
+    deal_list_output = exec_deal_list(number_of_nodes)
     if deal_list_output['deals']:
         for _, v in deal_list_output.items():
             return [d['id'] for d in v]
     else:
-        check_state()
+        check_state(number_of_nodes)
+
+
+def exec_deal_list(number_of_nodes):
+    return exec_cli(["deal", "list", "--timeout=2m", "--limit", number_of_nodes])
 
 
 def get_deal_tag_node_num(deal_id):
@@ -237,7 +241,8 @@ def task_valid(deal_id):
 
 
 def deal_manager():
-    deal_ids = get_deals()
+    number_of_nodes = CONFIG["numberofnodes"]
+    deal_ids = get_deals(number_of_nodes)
     if deal_ids is not None:
         for deal_id in deal_ids:
             task_valid(deal_id)
