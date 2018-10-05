@@ -262,6 +262,14 @@ def start_task_on_deal(deal_id, task_file, node_num, ntag):
 
 def task_valid(deal_id, task_state):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
+    task_list = exec_cli(["task", "list", deal_id, "--timeout=2m"], retry=True)
+    if task_list and len(task_list.keys()) > 0:
+        if "error" in task_list.keys() or "message" in task_list.keys():
+            return close_deal_and_create_order(deal_id, node_num, ntag)
+        task_id = list(task_list.keys())[0]
+        task_manager(deal_id, task_id, node_num, ntag)
+        return 1
+
     if task_state == 0:
         log("Starting task on node " + str(node_num) + "...")
         task_file = "out/tasks/" + ntag + ".yaml"
@@ -269,13 +277,6 @@ def task_valid(deal_id, task_state):
                          kwargs={'deal_id': deal_id, 'task_file': task_file,
                                  'node_num': node_num, 'ntag': ntag}).start()
         return 1
-
-    task_list = exec_cli(["task", "list", deal_id, "--timeout=2m"], retry=True)
-    if task_list and len(task_list.keys()) > 0:
-        if "error" in task_list.keys() or "message" in task_list.keys():
-            return close_deal_and_create_order(deal_id, node_num, ntag)
-        task_id = list(task_list.keys())[0]
-        task_manager(deal_id, task_id, node_num, ntag)
     log("Task on deal " + deal_id + " (Node " + node_num + ") is still starting...")
 
 
