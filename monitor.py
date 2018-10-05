@@ -16,6 +16,23 @@ from pathlib2 import Path
 from shutil import which
 
 from yaml_gen import template_bid, template_task
+from enum import Enum
+
+
+class State(Enum):
+    START = 0
+    PLACING_ORDERS = 1
+    WORK_WITH_DEALS = 2
+
+
+def set_script_state(s):
+    global STATE
+    try:
+        if STATE != s:
+            log("State changed to " + str(s.name))
+            STATE = s
+    except NameError:
+        STATE = s
 
 
 def exec_cli(param, retry=False, attempts=3, sleep_time=1):
@@ -67,9 +84,9 @@ def load_cfg():
 
 
 def set_state():
-    STATE.append(0)
+    STATE_NODE.append(0)
     for number in range(CONFIG["numberofnodes"]):
-        STATE.append(0)
+        STATE_NODE.append(0)
 
 
 def set_sonmcli():
@@ -117,19 +134,20 @@ def dump_file(data, filename):
 
 
 def check_orders(number_of_nodes):
-    orders = exec_cli(["order", "list", "--timeout=2m", "--limit", number_of_nodes])
+    orders = exec_cli(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
     deals = exec_deal_list(number_of_nodes)
     if orders["orders"] is not None:
         log("Waiting for deals...")
         time.sleep(10)
     elif deals["deals"] is None:
         log("No deals or orders found. Creating new orders...")
+        set_script_state(State.PLACING_ORDERS)
         load_generator()
 
 
 def check_state(number_of_nodes):
-    STATE[0] = 1
-    if 0 in STATE:
+    STATE_NODE[0] = 1
+    if 0 in STATE_NODE:
         check_orders(number_of_nodes)
     else:
         log("All tasks are finished")
@@ -138,7 +156,8 @@ def check_state(number_of_nodes):
 
 def get_deals(number_of_nodes):
     deal_list_output = exec_deal_list(number_of_nodes)
-    if deal_list_output['deals']:
+    if deal_list_output and deal_list_output['deals']:
+        set_script_state(State.WORK_WITH_DEALS)
         for _, v in deal_list_output.items():
             return [d['id'] for d in v]
     else:
@@ -146,7 +165,7 @@ def get_deals(number_of_nodes):
 
 
 def exec_deal_list(number_of_nodes):
-    return exec_cli(["deal", "list", "--timeout=2m", "--limit", number_of_nodes])
+    return exec_cli(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
 
 
 def get_deal_tag_node_num(deal_id):
@@ -196,7 +215,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
 
             log("Closing deal " + deal_id + " ...")
             close_deal(deal_id)
-            STATE[int(node_num)] = 1
+            STATE_NODE[int(node_num)] = 1
             time.sleep(5)
         else:
             log("Task has failed/stopped (" + time_ + " seconds) on deal " + deal_id + " (Node " + node_num +
@@ -258,8 +277,9 @@ def init():
     create_dir("out/orders")
     create_dir("out/tasks")
 
-    global CONFIG, STATE, SONM_CLI
-    STATE = []
+    global CONFIG, STATE_NODE, SONM_CLI, STATE
+    set_script_state(State.START)
+    STATE_NODE = []
     CONFIG = load_cfg()
     set_state()
     SONM_CLI = set_sonmcli()
