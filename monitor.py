@@ -62,8 +62,8 @@ def create_dir(dir_):
 
 def load_cfg():
     path = Path('config.yaml')
-    yaml = YAML(typ='safe')
-    return yaml.load(path)
+    yaml_ = YAML(typ='safe')
+    return yaml_.load(path)
 
 
 def set_state():
@@ -163,7 +163,7 @@ def blacklist(deal_id, node_num, ntag):
     create_new_order(node_num, ntag)
 
 
-def create_new_order(node_num, ntag):  # TODO use this method when deal was disappear
+def create_new_order(node_num, ntag):
     bidfile_ = "out/orders/" + ntag + ".yaml"
     order = exec_cli(["order", "create", bidfile_])
     log("Order for Node " + node_num + " is " + order["id"])
