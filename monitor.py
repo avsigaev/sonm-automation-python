@@ -25,6 +25,39 @@ class State(Enum):
     PLACING_ORDERS = 1
     WAIT_FOR_DEALS = 2
     WORK_WITH_DEALS = 3
+    FINISH = 4
+
+
+class Cli:
+    def __init__(self, cli_):
+        self.cli = cli_
+
+    def exec(self, param, retry=False, attempts=3, sleep_time=1):
+        command = [self.cli] + param
+        command.append("--json")
+        attempt = 1
+        errors_ = []
+        while True:
+            result = subprocess.run(command, stdout=subprocess.PIPE)
+            if result.returncode == 0:
+                break
+            if not retry or attempt > attempts:
+                break
+            errors_.append(str(result.stdout))
+            attempt += 1
+            time.sleep(sleep_time)
+        if result.returncode != 0:
+            log("Failed to execute command: " + ' '.join(command))
+            log('\n'.join(errors_))
+            return None
+        if result.stdout.decode("utf-8") == "null":
+            return {}
+        return json.loads(result.stdout.decode("utf-8"))
+
+    def save_task_logs(self, deal_id, task_id, rownum, filename):
+        command = [self.cli, "task", "logs", deal_id, task_id, "--tail", rownum]
+        with open(filename, "w") as outfile:
+            subprocess.call(command, stdout=outfile)
 
 
 def set_script_state(s):
@@ -40,35 +73,6 @@ def set_script_state(s):
 def is_state_equal(state_):
     global STATE
     return state_ == STATE
-
-
-def exec_cli(param, retry=False, attempts=3, sleep_time=1):
-    command = [SONM_CLI] + param
-    command.append("--json")
-    attempt = 1
-    errors_ = []
-    while True:
-        result = subprocess.run(command, stdout=subprocess.PIPE)
-        if result.returncode == 0:
-            break
-        if not retry or attempt > attempts:
-            break
-        errors_.append(str(result.stdout))
-        attempt += 1
-        time.sleep(sleep_time)
-    if result.returncode != 0:
-        log("Failed to execute command: " + ' '.join(command))
-        log('\n'.join(errors_))
-        return None
-    if result.stdout.decode("utf-8") == "null":
-        return {}
-    return json.loads(result.stdout.decode("utf-8"))
-
-
-def save_task_logs(deal_id, task_id, rownum, filename):
-    command = [SONM_CLI, "task", "logs", deal_id, task_id, "--tail", rownum]
-    with open(filename, "w") as outfile:
-        subprocess.call(command, stdout=outfile)
 
 
 def log(s):
@@ -137,7 +141,7 @@ def load_generator():
 
 def create_order(bid_file, node_num):
     log("Creating order for Node number " + str(node_num))
-    order_ = exec_cli(["order", "create", bid_file])
+    order_ = SONM_CLI.exec(["order", "create", bid_file])
     log("Order for Node " + str(node_num) + " is " + order_["id"])
 
 
@@ -147,7 +151,7 @@ def dump_file(data, filename):
 
 
 def check_orders(number_of_nodes):
-    orders = exec_cli(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
+    orders = SONM_CLI.exec(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
     deals = exec_deal_list(number_of_nodes)
     if orders["orders"] is not None or is_state_equal(State.WAIT_FOR_DEALS):
         log("Waiting for deals...")
@@ -178,11 +182,11 @@ def get_deals(number_of_nodes):
 
 
 def exec_deal_list(number_of_nodes):
-    return exec_cli(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
+    return SONM_CLI.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
 
 
 def get_deal_tag_node_num(deal_id):
-    deal_status = exec_cli(["deal", "status", deal_id, "--expand"])
+    deal_status = SONM_CLI.exec(["deal", "status", deal_id, "--expand"])
     ntag = base64.b64decode(deal_status["bid"]["tag"]).decode().strip("\0")
     node_num = ntag.split("_")[len(ntag.split("_")) - 1]
     status = deal_status["deal"]["status"]
@@ -190,25 +194,25 @@ def get_deal_tag_node_num(deal_id):
 
 
 def blacklist(deal_id, node_num, ntag):
-    exec_cli(["deal", "close", deal_id, "--blacklist", "worker"], retry=True)
+    SONM_CLI.exec(["deal", "close", deal_id, "--blacklist", "worker"], retry=True)
     log("Node " + node_num + " failure, new order will be created...")
     create_new_order(node_num, ntag)
 
 
 def create_new_order(node_num, ntag):
     bidfile_ = "out/orders/" + ntag + ".yaml"
-    order = exec_cli(["order", "create", bidfile_])
+    order = SONM_CLI.exec(["order", "create", bidfile_])
     log("Order for Node " + node_num + " is " + order["id"])
 
 
 def close_deal(deal_id):
-    closed = exec_cli(["deal", "close", deal_id], retry=True)
+    closed = SONM_CLI.exec(["deal", "close", deal_id], retry=True)
     if "id" in closed[0]:
         log("Closed deal " + deal_id)
 
 
 def task_manager(deal_id, task_id, node_num, ntag):
-    task_status = exec_cli(["task", "status", deal_id, task_id, "--timeout=2m"], retry=True)
+    task_status = SONM_CLI.exec(["task", "status", deal_id, task_id, "--timeout=2m"], retry=True)
     if not task_status:
         return close_deal_and_create_order(deal_id, node_num, ntag, task_id)
     status_ = task_status["status"]
@@ -224,7 +228,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
                 " ) is finished. Uptime is " + time_ + "  seconds")
             log("Task " + task_id + "  on deal " + deal_id + " (Node " + node_num +
                 " ) success. Fetching log, shutting down node...")
-            save_task_logs(deal_id, task_id, "1000000", "out/success_" + ntag + "-deal-" + deal_id + ".log")
+            SONM_CLI.save_task_logs(deal_id, task_id, "1000000", "out/success_" + ntag + "-deal-" + deal_id + ".log")
 
             log("Closing deal " + deal_id + " ...")
             close_deal(deal_id)
@@ -233,7 +237,7 @@ def task_manager(deal_id, task_id, node_num, ntag):
         else:
             log("Task has failed/stopped (" + time_ + " seconds) on deal " + deal_id + " (Node " + node_num +
                 ") before ETA." + " Closing deal and blacklisting counterparty worker's address...")
-            save_task_logs(deal_id, task_id, "1000000", "out/fail_" + ntag + "-deal-" + deal_id + ".log")
+            SONM_CLI.save_task_logs(deal_id, task_id, "1000000", "out/fail_" + ntag + "-deal-" + deal_id + ".log")
             blacklist(deal_id, node_num, ntag)
 
 
@@ -251,7 +255,7 @@ def close_deal_and_create_order(deal_id, node_num, ntag, task_id=""):
 
 
 def start_task_on_deal(deal_id, task_file, node_num, ntag):
-    task = exec_cli(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
+    task = SONM_CLI.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
     if not task:
         log("Failed to start task on deal " + deal_id +
             ". Closing deal and blacklisting counterparty worker's address...")
@@ -262,7 +266,7 @@ def start_task_on_deal(deal_id, task_file, node_num, ntag):
 
 def task_valid(deal_id, task_state):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
-    task_list = exec_cli(["task", "list", deal_id, "--timeout=2m"], retry=True)
+    task_list = SONM_CLI.exec(["task", "list", deal_id, "--timeout=2m"], retry=True)
     if task_list and len(task_list.keys()) > 0:
         if "error" in task_list.keys() or "message" in task_list.keys():
             return close_deal_and_create_order(deal_id, node_num, ntag)
@@ -306,9 +310,14 @@ def init():
     STATE_NODE = []
     CONFIG = load_cfg()
     set_state()
-    SONM_CLI = set_sonmcli()
-    check_installed()
+    SONM_CLI = Cli(set_sonmcli())
+    # check_installed()
 
 
-init()
-watch()
+def main():
+    init()
+    watch()
+
+
+if __name__ == "__main__":
+    main()
