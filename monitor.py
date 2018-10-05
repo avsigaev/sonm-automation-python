@@ -211,7 +211,6 @@ def close_deal_and_create_order(deal_id, node_num, ntag, task_id=""):
         log("Deal " + deal_id + " (Node " + node_num + ") has gone away")
     log("Recreating order for Node " + node_num)
     create_new_order(node_num, ntag)
-    time.sleep(10)
     return
 
 
