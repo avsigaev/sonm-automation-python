@@ -131,6 +131,7 @@ def load_generator():
         task_ = template_task(ntag)
         dump_file(task_, "out/tasks/" + ntag + ".yaml")
         threading.Thread(target=create_order, kwargs={'bid_file': bid_file, 'node_num': number}, ).start()
+        time.sleep(1)
     set_script_state(State.WAIT_FOR_DEALS)
 
 
@@ -255,29 +256,39 @@ def start_task_on_deal(deal_id, task_file, node_num, ntag):
         log("Failed to start task on deal " + deal_id +
             ". Closing deal and blacklisting counterparty worker's address...")
         blacklist(deal_id, node_num, ntag)
+    else:
+        log("Task started: deal " + deal_id + " with task_id " + task["id"])
 
 
-def task_valid(deal_id):
+def task_valid(deal_id, task_state):
     node_num, ntag, status = get_deal_tag_node_num(deal_id)
+    if task_state == 0:
+        log("Starting task on node " + str(node_num) + "...")
+        task_file = "out/tasks/" + ntag + ".yaml"
+        threading.Thread(target=start_task_on_deal,
+                         kwargs={'deal_id': deal_id, 'task_file': task_file,
+                                 'node_num': node_num, 'ntag': ntag}).start()
+        return 1
+
     task_list = exec_cli(["task", "list", deal_id, "--timeout=2m"], retry=True)
     if task_list and len(task_list.keys()) > 0:
         if "error" in task_list.keys() or "message" in task_list.keys():
             return close_deal_and_create_order(deal_id, node_num, ntag)
         task_id = list(task_list.keys())[0]
         task_manager(deal_id, task_id, node_num, ntag)
-    else:
-        log("Starting task on node " + str(node_num) + "...")
-        task_file = "out/tasks/" + ntag + ".yaml"
-        start_task_on_deal(deal_id, task_file, node_num, ntag)
+    log("Task on deal " + deal_id + " (Node " + node_num + ") is still starting...")
 
 
-def deal_manager():
+def deal_manager(task_state=None):
+    if task_state is None:
+        task_state = {}
     number_of_nodes = CONFIG["numberofnodes"]
     deal_ids = get_deals(number_of_nodes)
     if deal_ids is not None:
         for deal_id in deal_ids:
-            task_valid(deal_id)
-    deal_manager()
+            task_state[deal_id] = task_valid(deal_id, task_state.get(deal_id, 0))
+    time.sleep(10)
+    deal_manager(task_state)
 
 
 def watch():
