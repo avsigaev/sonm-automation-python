@@ -9,6 +9,7 @@ import platform
 import re
 import subprocess
 import time
+import threading
 
 from ruamel import yaml
 from ruamel.yaml import YAML
@@ -22,7 +23,8 @@ from enum import Enum
 class State(Enum):
     START = 0
     PLACING_ORDERS = 1
-    WORK_WITH_DEALS = 2
+    WAIT_FOR_DEALS = 2
+    WORK_WITH_DEALS = 3
 
 
 def set_script_state(s):
@@ -33,6 +35,11 @@ def set_script_state(s):
             STATE = s
     except NameError:
         STATE = s
+
+
+def is_state_equal(state_):
+    global STATE
+    return state_ == STATE
 
 
 def exec_cli(param, retry=False, attempts=3, sleep_time=1):
@@ -112,20 +119,25 @@ def validate_eth_addr(eth_addr):
 
 
 def load_generator():
-    numberoforders = CONFIG["numberofnodes"]
     counterparty = validate_eth_addr(CONFIG["counterparty"])
-    for n in range(numberoforders):
+    for n in range(CONFIG["numberofnodes"]):
         number = n + 1
         ntag = CONFIG["tag"] + "_" + str(number)
         bid_ = template_bid(CONFIG, ntag, counterparty)
         bid_file = "out/orders/" + ntag + ".yaml"
+        log("Creating order file Node number " + str(number))
         dump_file(bid_, bid_file)
-        log("Creating order for Node number " + str(number))
-        order_ = exec_cli(["order", "create", bid_file])
-        log("Order for Node " + str(number) + " is " + order_["id"])
         log("Creating task file for Node number " + str(number))
         task_ = template_task(ntag)
         dump_file(task_, "out/tasks/" + ntag + ".yaml")
+        threading.Thread(target=create_order, kwargs={'bid_file': bid_file, 'node_num': number}, ).start()
+    set_script_state(State.WAIT_FOR_DEALS)
+
+
+def create_order(bid_file, node_num):
+    log("Creating order for Node number " + str(node_num))
+    order_ = exec_cli(["order", "create", bid_file])
+    log("Order for Node " + str(node_num) + " is " + order_["id"])
 
 
 def dump_file(data, filename):
@@ -136,7 +148,7 @@ def dump_file(data, filename):
 def check_orders(number_of_nodes):
     orders = exec_cli(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
     deals = exec_deal_list(number_of_nodes)
-    if orders["orders"] is not None:
+    if orders["orders"] is not None or is_state_equal(State.WAIT_FOR_DEALS):
         log("Waiting for deals...")
         time.sleep(10)
     elif deals["deals"] is None:
