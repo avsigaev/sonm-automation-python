@@ -1,6 +1,6 @@
 set_sonmcli() {
-	if [ -f "./sonmcli" ]; then
-		sonmcli="./sonmcli"
+	if [ -f "./sonmcli_darwin_x86_64" ]; then
+		sonmcli="./sonmcli_darwin_x86_64"
 	else
 		sonmcli="sonmcli"
 	fi
