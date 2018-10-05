@@ -24,8 +24,8 @@ def template_bid(config, tag, counterparty=None):
                 "net-download": config["netdownload"] * 1024 * 1024,
                 "net-upload": config["netupload"] * 1024 * 1024,
                 "gpu-count": config["gpucount"],
-                "gpu-mem": gpumem,
-                "gpu-eth-hashrate": ethhashrate
+                "gpu-mem": gpumem * 1024 * 1024,
+                "gpu-eth-hashrate": ethhashrate * 1000000
             }
         }
     }
@@ -59,5 +59,5 @@ def template_task(tag):
             },
             "commit_on_stop": False
         }
-    }  
+    }
     return task_template
