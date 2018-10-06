@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import base64
 import threading
 
@@ -19,7 +21,7 @@ def get_orders_list(number_of_nodes):
     if orders and orders["orders"] is not None:
         return orders["orders"]
     else:
-        log("Empty orders list")
+        log("No active orders found.")
         exit(0)
 
 
@@ -29,7 +31,7 @@ def create_new_yaml_files(orders_list, config):
         node_num, ntag = get_tag_num(order)
         bid_ = template_bid(config, ntag, counterparty)
         bid_file = "out/orders/" + ntag + ".yaml"
-        log("Creating order file Node number " + str(node_num))
+        log("Creating order file Node " + str(node_num))
         dump_file(bid_, bid_file)
 
 

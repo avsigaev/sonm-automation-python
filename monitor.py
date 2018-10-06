@@ -257,11 +257,11 @@ def close_deal_and_create_order(deal_id, node_num, ntag, task_id=""):
 def start_task_on_deal(deal_id, task_file, node_num, ntag):
     task = SONM_CLI.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
     if not task:
-        log("Failed to start task on deal " + deal_id +
+        log("Failed to start task (Node " + node_num + ") on deal " + deal_id +
             ". Closing deal and blacklisting counterparty worker's address...")
         blacklist(deal_id, node_num, ntag)
     else:
-        log("Task started: deal " + deal_id + " with task_id " + task["id"])
+        log("Task (Node " + node_num + ") started: deal " + deal_id + " with task_id " + task["id"])
 
 
 def task_valid(deal_id, task_state):

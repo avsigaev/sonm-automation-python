@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import threading
 
 from monitor import set_sonmcli, Cli
