@@ -299,7 +299,7 @@ def watch(nodes_num_, nodes_, cli_):
             log("No active nodes left")
             exit(0)
         log("Active nodes:\n" + '\n '.join("\t{0.node_num} ({0.status.name})".format(n) for n in nodes_))
-        time.sleep(10)
+        time.sleep(30)
 
 
 def check_opened_deals(cli_, nodes_, nodes_num_):
