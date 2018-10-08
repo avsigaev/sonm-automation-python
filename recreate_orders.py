@@ -10,7 +10,7 @@ from yaml_gen import template_bid
 def recreate_order(order):
     node_num, ntag = get_tag_num(order)
     log("Cancelling order " + order["id"])
-    SONM_CLI.exec("order", "cancel", order["id"])
+    SONM_CLI.exec(["order", "cancel", order["id"]])
     bidfile_ = "out/orders/" + ntag + ".yaml"
     order = SONM_CLI.exec(["order", "create", bidfile_])
     log("Order for Node " + node_num + " is " + order["id"])
