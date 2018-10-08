@@ -245,6 +245,7 @@ def validate_eth_addr(eth_addr):
         log("Incorrect eth address or not specified")
         return None
     else:
+        log("Eth address was parsed successfully: " + eth_addr)
         return eth_addr
 
 
@@ -261,6 +262,7 @@ def init():
 
     global CONFIG, COUNTER_PARTY
     CONFIG = load_cfg()
+    log("Try to parse counterparty eth address:")
     COUNTER_PARTY = validate_eth_addr(CONFIG["counterparty"])
     return Cli(set_sonmcli())
 
