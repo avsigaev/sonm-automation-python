@@ -76,6 +76,9 @@ class Cli:
     def order_list(self, number_of_nodes):
         return self.exec(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
 
+    def order_status(self, order_id):
+        return self.exec(["order", "status", str(order_id)])
+
     def deal_list(self, number_of_nodes):
         return self.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
 
@@ -171,7 +174,16 @@ class Node:
                 self.status = State.TASK_FAILED
                 return
             task_status = self.cli.task_status(self.deal_id, self.task_id)
-            status_ = task_status["status"]
+            if task_status and "status" in task_status:
+                status_ = task_status["status"]
+            else:
+                if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
+                    log("Deal " + self.deal_id + " was closed")
+                    self.status = State.DEAL_DISAPPEARED
+                    return
+                else:
+                    self.status = State.TASK_FAILED
+                    return
             time_ = str(int(float(int(task_status["uptime"]) / 1000000000)))
             if status_ == "RUNNING":
                 log("Task " + self.task_id + " on deal " + self.deal_id + " (Node " + self.node_num +
@@ -286,7 +298,7 @@ def watch(nodes_num_, nodes_, cli_):
         if len(nodes_) == 0:
             log("No active nodes left")
             exit(0)
-        log("Active nodes: " + ', '.join("{0.node_num} ({0.status.name})".format(n) for n in nodes_))
+        log("Active nodes:\n" + '\n '.join("\t{0.node_num} ({0.status.name})".format(n) for n in nodes_))
         time.sleep(10)
 
 
@@ -294,20 +306,36 @@ def check_opened_deals(cli_, nodes_, nodes_num_):
     # Match deals and nodes
     deal_list = cli_.deal_list(nodes_num_)
     orders_ = cli_.order_list(nodes_num_)
+    all_orders = []
 
     for node in [node_ for node_ in nodes_ if node_.status == State.ORDER_PLACED]:
+        if orders_ and orders_["orders"] is not None:
+            for order_ in list(orders_["orders"]):
+                if order_["id"] not in all_orders:
+                    all_orders.append(order_["id"])
+                if parse_tag(order_["tag"]) == node.node_tag:
+                    node.bid_id = order_["id"]
+                    node.status = State.ORDER_PLACED
         if deal_list and deal_list['deals']:
             for _, v in deal_list.items():
                 for d in v:
+                    if d["bidID"] not in all_orders:
+                        all_orders.append(d["bidID"])
                     if d["bidID"] == node.bid_id:
                         node.deal_id = d["id"]
                         if node.status == State.ORDER_PLACED:
                             node.status = State.DEAL_OPENED
-        if orders_ and orders_["orders"] is not None:
-            for order_ in list(orders_["orders"]):
-                if parse_tag(order_["tag"]) == node.node_tag:
-                    node.bid_id = order_["id"]
-                    node.status = State.ORDER_PLACED
+    # known_orders = [node_.bid_id for node_ in nodes_ if node_.status.value > 1]
+    # result_list = [x for x in all_orders if x not in known_orders]
+    # all_orders = [ord_["id"] for ord_ in orders_["orders"]]
+    # known_orders = [node_.bid_id for node_ in nodes_ if node_.status.value > 1]
+    # result_list = [x for x in all_orders if x not in known_orders]
+    # for order_ in result_list:
+    #     order_status = cli_.order_status(order_)
+    #     for node in nodes_:
+    #         if parse_tag(order_status["tag"]) == node.node_tag:
+    #             node.bid_id = order_
+    #             node.status = State.ORDER_PLACED
 
 
 def init_nodes_state(cli_, nodes_num_):
