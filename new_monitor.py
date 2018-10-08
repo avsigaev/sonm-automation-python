@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import base64
 import datetime
 import errno
@@ -171,6 +173,7 @@ class Node:
                     log("Deal " + self.deal_id + " was closed")
                     self.status = State.DEAL_DISAPPEARED
                     return
+                log("Cannot retrieve task list of deal " + self.deal_id + ", worker is offline?")
                 self.status = State.TASK_FAILED
                 return
             task_status = self.cli.task_status(self.deal_id, self.task_id)
@@ -182,6 +185,8 @@ class Node:
                     self.status = State.DEAL_DISAPPEARED
                     return
                 else:
+                    log("Cannot retrieve task status of deal " + self.deal_id +
+                        ", task_id " + self.task_id + " worker is offline?")
                     self.status = State.TASK_FAILED
                     return
             time_ = str(int(float(int(task_status["uptime"]) / 1000000000)))
