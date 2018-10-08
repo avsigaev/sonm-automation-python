@@ -164,11 +164,11 @@ def check_orders(number_of_nodes):
 
 def check_state(number_of_nodes):
     STATE_NODE[0] = 1
-    if 0 in STATE_NODE:
-        check_orders(number_of_nodes)
-    else:
+    if is_state_equal(State.FINISH):
         log("All tasks are finished")
         exit(0)
+    if 0 in STATE_NODE:
+        check_orders(number_of_nodes)
 
 
 def get_deals(number_of_nodes):
