@@ -3,8 +3,17 @@
 import base64
 import threading
 
-from monitor import load_cfg, log, dump_file, validate_eth_addr, set_sonmcli, Cli
-from yaml_gen import template_bid
+from ruamel import yaml
+
+from source.cli import Cli
+from source.log import log
+from new_monitor import validate_eth_addr, load_cfg, set_sonmcli
+from source.yaml_gen import template_bid
+
+
+def dump_file(data, filename):
+    with open(filename, 'w+') as file:
+        yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
 
 
 def recreate_order(order):

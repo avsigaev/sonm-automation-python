@@ -1,3 +1,7 @@
+from jinja2 import Template
+from ruamel.yaml import ruamel
+
+
 def template_bid(config, tag, counterparty=None):
     gpumem = config["gpumem"]
     ethhashrate = config["ethhashrate"]
@@ -34,18 +38,11 @@ def template_bid(config, tag, counterparty=None):
     return bid_template
 
 
-def template_task(tag):
-    task_template = {
-        "container": {
-            "image": "clavichord/bmi_parser",
-            "tag": tag,
-            "env": {
-                "ARGS": "--project test --testMode --verbose --node " + tag + " --autoThreadCount"
-            }
-        }
-    }
-    return task_template
-
+def template_task(file_, node_tag):
+    with open(file_, 'r') as fp:
+        t = Template(fp.read())
+        data = t.render(node_tag=node_tag)
+        return ruamel.yaml.round_trip_load(data, preserve_quotes=True)
 
 # def template_task(tag):
 #     task_template = {

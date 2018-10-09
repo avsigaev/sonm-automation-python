@@ -2,7 +2,8 @@
 
 import threading
 
-from monitor import set_sonmcli, Cli
+from source.cli import Cli
+from new_monitor import set_sonmcli
 
 
 def clear_blacklist(address):
