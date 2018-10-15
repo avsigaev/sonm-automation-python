@@ -19,8 +19,9 @@ class State(Enum):
     TASK_RUNNING = 7
     TASK_FAILED = 8
     TASK_FAILED_TO_START = 9
-    TASK_FINISHED = 10
-    WORK_COMPLETED = 11
+    TASK_BROKEN = 10
+    TASK_FINISHED = 11
+    WORK_COMPLETED = 12
 
 
 def call_with_future(fn, future, args, kwargs):
@@ -136,18 +137,23 @@ class Node:
                     "Task " + self.task_id + " on deal " + self.deal_id +
                     " (Node " + self.node_num + ") is uploading...")
                 self.status = State.STARTING_TASK
-            if status_ == "BROKEN" or status_ == "FINISHED":
-                if int(time_) > self.config["eta"]:
-                    log("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
-                        " ) is finished. Uptime is " + time_ + "  seconds")
-                    log("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
-                        " ) success. Fetching log, shutting down node...")
-                    self.status = State.TASK_FINISHED
+            if status_ == "BROKEN":
+                if int(time_) < self.config["ets"]:
+                    log("Task has failed/stopped (" + time_ + " seconds) on deal " + self.deal_id +
+                        " (Node " + self.node_num + ") before ETS." +
+                        " Closing deal and blacklisting counterparty worker's address...")
+                    self.status = State.TASK_FAILED
                 else:
                     log("Task has failed/stopped (" + time_ + " seconds) on deal " + self.deal_id +
                         " (Node " + self.node_num + ") before ETA." +
-                        " Closing deal and blacklisting counterparty worker's address...")
-                    self.status = State.TASK_FAILED
+                        " Closing deal and recreate order...")
+                    self.status = State.TASK_BROKEN
+            if status_ == "FINISHED":
+                log("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
+                    " ) is finished. Uptime is " + time_ + "  seconds")
+                log("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
+                    " ) success. Fetching log, shutting down node...")
+                self.status = State.TASK_FINISHED
 
     def save_task_logs(self, prefix):
         self.cli.save_task_logs(self.deal_id, self.task_id, "1000000",

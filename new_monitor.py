@@ -8,7 +8,6 @@ import re
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.blocking import BlockingScheduler
 from pathlib2 import Path
 from ruamel.yaml import YAML
 
@@ -54,8 +53,16 @@ def init():
     create_dir("out/tasks")
 
     config = load_cfg()
+    config_keys = ["numberofnodes", "tag", "eta", "ets", "template_file", "iteration_time", "identity", "ramsize",
+                   "storagesize", "cpucores", "sysbenchsingle", "sysbenchmulti", "netdownload", "netupload", "price",
+                   "overlay", "incoming", "gpucount", "gpumem", "ethhashrate"];
+    missed_keys = [key for key in config_keys if key not in config]
+    if len(missed_keys) > 0:
+        raise Exception("Missed keys: '" + "', '".join(missed_keys) + "'")
     log("Try to parse counterparty eth address:")
-    counter_party = validate_eth_addr(config["counterparty"])
+    counter_party = None
+    if "counterparty" in config:
+        counter_party = validate_eth_addr(config["counterparty"])
     return Cli(set_sonmcli()), config, counter_party
 
 
@@ -85,6 +92,8 @@ def watch(nodes_num_, nodes_, cli_):
             futures.append(node.check_task_status())
         elif node.status == State.TASK_FAILED or node.status == State.TASK_FAILED_TO_START:
             futures.append(node.close_deal(State.CREATE_ORDER, blacklist=True))
+        elif node.status == State.TASK_BROKEN:
+            futures.append(node.close_deal(State.CREATE_ORDER))
         elif node.status == State.TASK_FINISHED:
             futures.append(node.close_deal(State.WORK_COMPLETED))
     for future in futures:

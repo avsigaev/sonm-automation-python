@@ -18,9 +18,9 @@ class Cli:
             result = subprocess.run(command, stdout=subprocess.PIPE)
             if result.returncode == 0:
                 break
+            errors_.append(str(result.stdout.decode("utf-8")))
             if not retry or attempt > attempts:
                 break
-            errors_.append(str(result.stdout))
             attempt += 1
             time.sleep(sleep_time)
         if result.returncode != 0:

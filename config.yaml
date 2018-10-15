@@ -5,7 +5,9 @@ numberofnodes: 2
 #cluster name, bid's and tasks will use it
 tag: "TEST"
 # Task estimated time of arrival, sec
-eta: 180
+eta: 1800
+# Estimated time of successful start of task (blacklist worker if task failed before ets)
+ets: 180
 # Template for task yaml
 template_file: "claymore.yaml"
 #template_file: "task_template.yaml"
