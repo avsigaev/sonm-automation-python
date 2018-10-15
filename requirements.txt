@@ -1,2 +1,4 @@
+apscheduler
+jinja2
 ruamel.yaml
 pathlib2
