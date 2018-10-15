@@ -2,6 +2,7 @@
 
 import base64
 import errno
+import logging
 import os
 import platform
 import re
@@ -187,6 +188,8 @@ def parse_tag(order_):
 
 
 def main():
+    logging.basicConfig()
+    logging.getLogger('apscheduler').setLevel(logging.FATAL)
     global scheduler
     cli_, config, counter_party = init()
     nodes_num_ = int(config["numberofnodes"])
