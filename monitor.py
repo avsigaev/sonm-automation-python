@@ -4,6 +4,7 @@ import base64
 import datetime
 import errno
 import json
+import logging
 import os
 import platform
 import re
@@ -315,6 +316,8 @@ def init():
 
 
 def main():
+    logging.basicConfig()
+    logging.getLogger('apscheduler').setLevel(logging.FATAL)
     init()
     watch()
 
