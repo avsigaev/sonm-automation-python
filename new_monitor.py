@@ -53,7 +53,7 @@ def init():
     create_dir("out/tasks")
 
     config = load_cfg()
-    config_keys = ["numberofnodes", "tag", "eta", "ets", "template_file", "iteration_time", "identity", "ramsize",
+    config_keys = ["numberofnodes", "tag", "ets", "template_file", "iteration_time", "identity", "ramsize",
                    "storagesize", "cpucores", "sysbenchsingle", "sysbenchmulti", "netdownload", "netupload", "price",
                    "overlay", "incoming", "gpucount", "gpumem", "ethhashrate"];
     missed_keys = [key for key in config_keys if key not in config]

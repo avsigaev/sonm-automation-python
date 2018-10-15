@@ -40,16 +40,16 @@ class Cli:
         return self.exec(["order", "create", bid_file])
 
     def order_list(self, number_of_nodes):
-        return self.exec(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
+        return self.exec(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
 
     def order_status(self, order_id):
-        return self.exec(["order", "status", str(order_id)])
+        return self.exec(["order", "status", str(order_id)], retry=True)
 
     def deal_list(self, number_of_nodes):
-        return self.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)])
+        return self.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
 
     def deal_status(self, deal_id):
-        return self.exec(["deal", "status", deal_id, "--expand"])
+        return self.exec(["deal", "status", deal_id, "--expand"], retry=True)
 
     def deal_close(self, deal_id, bl_worker=False):
         close_d_command = ["deal", "close", deal_id]

@@ -95,7 +95,7 @@ class Node:
     def close_deal(self, state_after, blacklist=False):
         # Close deal on node
         log("Saving logs deal_id " + self.deal_id + " task_id " + self.task_id)
-        if self.status == State.TASK_FAILED:
+        if self.status == State.TASK_FAILED or self.status == State.TASK_BROKEN:
             self.save_task_logs("out/fail_")
         if self.status == State.TASK_FINISHED:
             self.save_task_logs("out/success_")
@@ -139,13 +139,13 @@ class Node:
                 self.status = State.STARTING_TASK
             if status_ == "BROKEN":
                 if int(time_) < self.config["ets"]:
-                    log("Task has failed/stopped (" + time_ + " seconds) on deal " + self.deal_id +
+                    log("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
                         " (Node " + self.node_num + ") before ETS." +
                         " Closing deal and blacklisting counterparty worker's address...")
                     self.status = State.TASK_FAILED
                 else:
-                    log("Task has failed/stopped (" + time_ + " seconds) on deal " + self.deal_id +
-                        " (Node " + self.node_num + ") before ETA." +
+                    log("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
+                        " (Node " + self.node_num + ") after ETS." +
                         " Closing deal and recreate order...")
                     self.status = State.TASK_BROKEN
             if status_ == "FINISHED":
