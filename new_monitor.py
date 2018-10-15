@@ -4,6 +4,7 @@ import base64
 import datetime
 import errno
 import json
+import logging
 import os
 import platform
 import re
@@ -385,6 +386,8 @@ def parse_tag(order_):
 
 
 def main():
+    logging.basicConfig()
+    logging.getLogger('apscheduler').setLevel(logging.FATAL)
     cli_ = init()
     nodes_num_ = int(CONFIG["numberofnodes"])
     nodes_ = init_nodes_state(cli_, nodes_num_)
