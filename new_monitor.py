@@ -7,14 +7,26 @@ import os
 import platform
 import re
 import time
+from logging.config import dictConfig
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from pathlib2 import Path
 from ruamel.yaml import YAML
 
 from source.cli import Cli
-from source.log import log
 from source.node import Node, State
+
+
+def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
+    """Setup logging configuration
+
+    """
+    if os.path.exists(default_path):
+        config = load_cfg(default_path)
+        # logging.config.dictConfig(config)
+        dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
 
 
 def create_dir(dir_):
@@ -26,19 +38,20 @@ def create_dir(dir_):
                 raise
 
 
-def load_cfg():
-    path = Path('config.yaml')
-    yaml_ = YAML(typ='safe')
-    return yaml_.load(path)
+def load_cfg(path='config.yaml'):
+    if os.path.exists(path):
+        path = Path(path)
+        yaml_ = YAML(typ='safe')
+        return yaml_.load(path)
 
 
 def validate_eth_addr(eth_addr):
     pattern = re.compile("^0x[a-fA-F0-9]{40}$")
     if not pattern.match(eth_addr):
-        log("Incorrect eth address or not specified")
+        logger.info("Incorrect eth address or not specified")
         return None
     else:
-        log("Eth address was parsed successfully: " + eth_addr)
+        logger.info("Eth address was parsed successfully: " + eth_addr)
         return eth_addr
 
 
@@ -60,7 +73,7 @@ def init():
     missed_keys = [key for key in config_keys if key not in config]
     if len(missed_keys) > 0:
         raise Exception("Missed keys: '" + "', '".join(missed_keys) + "'")
-    log("Try to parse counterparty eth address:")
+    logger.info("Try to parse counterparty eth address:")
     counter_party = None
     if "counterparty" in config:
         counter_party = validate_eth_addr(config["counterparty"])
@@ -103,9 +116,9 @@ def watch(nodes_num_, nodes_, cli_):
     # (Create new list where status != DEAL_CLOSED)
     nodes_.sort(key=lambda x: int(x.node_num), reverse=False)
     if len([node_ for node_ in nodes_ if node_.status != State.WORK_COMPLETED]) == 0:
-        log("All nodes completed their work")
+        logger.info("All nodes completed their work")
         scheduler.remove_job("sonm_watch")
-    log("Nodes:\n" + '\n '.join("\t{0.node_num} ({0.status.name})".format(n) for n in nodes_))
+    logger.info("Nodes:\n" + '\n '.join("\t{0.node_num} ({0.status.name})".format(n) for n in nodes_))
 
 
 def check_opened_deals(cli_, nodes_, nodes_num_):
@@ -131,7 +144,7 @@ def check_opened_deals(cli_, nodes_, nodes_num_):
                         node.deal_id = d["id"]
                         if node.status == State.AWAITING_DEAL:
                             node.status = State.DEAL_OPENED
-                            log("Deal " + node.deal_id + " opened (Node " + node.node_num + ") ")
+                            logger.info("Deal " + node.deal_id + " opened (Node " + node.node_num + ") ")
     # known_orders = [node_.bid_id for node_ in nodes_ if node_.status.value > 1]
     # result_list = [x for x in all_orders if x not in known_orders]
     # all_orders = [ord_["id"] for ord_ in orders_["orders"]]
@@ -158,14 +171,15 @@ def init_nodes_state(cli_, nodes_num_, config, counter_party):
                 node_num = ntag.split("_")[len(ntag.split("_")) - 1]
                 task_id = ""
                 if "resources" not in deal_status:
-                    log("Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
+                    logger.info(
+                        "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
                     status = State.TASK_FAILED
                 if "running" in deal_status and len(list(deal_status["running"].keys())) > 0:
                     task_id = list(deal_status["running"].keys())[0]
                     status = State.TASK_RUNNING
                 bid_id_ = deal_status["bid"]["id"]
                 node_ = Node(status, cli_, node_num, config["tag"], d["id"], task_id, bid_id_, config, counter_party)
-                log("Found deal, id " + d["id"] + " (Node " + node_num + ")")
+                logger.info("Found deal, id " + d["id"] + " (Node " + node_num + ")")
                 nodes_.append(node_)
 
     # get orders
@@ -176,7 +190,7 @@ def init_nodes_state(cli_, nodes_num_, config, counter_party):
             ntag = parse_tag(order_["tag"])
             node_num = ntag.split("_")[len(ntag.split("_")) - 1]
             node_ = Node(status, cli_, node_num, config["tag"], "", "", order_["id"], config, counter_party)
-            log("Found order, id " + order_["id"] + " (Node " + node_num + ")")
+            logger.info("Found order, id " + order_["id"] + " (Node " + node_num + ")")
             nodes_.append(node_)
     if len(nodes_) == 0:
         nodes_ = get_nodes(cli_, config, counter_party)
@@ -188,8 +202,6 @@ def parse_tag(order_):
 
 
 def main():
-    logging.basicConfig()
-    logging.getLogger('apscheduler').setLevel(logging.FATAL)
     global scheduler
     cli_, config, counter_party = init()
     nodes_num_ = int(config["numberofnodes"])
@@ -207,5 +219,8 @@ def main():
         pass
 
 
+setup_logging()
+logging.getLogger('apscheduler').setLevel(logging.FATAL)
+logger = logging.getLogger('monitor')
 if __name__ == "__main__":
     main()

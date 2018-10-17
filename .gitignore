@@ -4,3 +4,4 @@ venv
 .idea
 sonmcli_darwin_x86_64
 .DS_Store
+monitor.log

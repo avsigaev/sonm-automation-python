@@ -1,13 +1,13 @@
 import json
+import logging
 import subprocess
 import time
-
-from source.log import log
 
 
 class Cli:
     def __init__(self, cli_):
         self.cli = cli_
+        self.logger = logging.getLogger("monitor")
 
     def exec(self, param, retry=False, attempts=3, sleep_time=1):
         command = [self.cli] + param
@@ -24,8 +24,8 @@ class Cli:
             attempt += 1
             time.sleep(sleep_time)
         if result.returncode != 0:
-            log("Failed to execute command: " + ' '.join(command))
-            log('\n'.join(errors_))
+            self.logger.error("Failed to execute command: " + ' '.join(command))
+            self.logger.error('\n'.join(errors_))
             return None
         if result.stdout.decode("utf-8") == "null":
             return {}
@@ -65,5 +65,3 @@ class Cli:
 
     def task_list(self, deal_id):
         return self.exec(["task", "list", deal_id, "--timeout=2m"], retry=True)
-
-

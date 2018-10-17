@@ -1,10 +1,10 @@
+import logging
 from concurrent.futures import Future
 from enum import Enum
 from threading import Thread
 
 from ruamel import yaml
 
-from source.log import log
 from source.yaml_gen import template_bid, template_task
 
 
@@ -54,6 +54,7 @@ class Node:
         self.bid_id = bid_id
         self.config = config
         self.counterparty = counterparty
+        self.logger = logging.getLogger("monitor")
 
     @classmethod
     def create_empty(cls, cli_, node_num, tag, config, counterparty):
@@ -62,44 +63,44 @@ class Node:
     def create_yaml(self):
         bid_ = template_bid(self.config, self.node_tag, self.counterparty)
         task_ = template_task(self.config["template_file"], self.node_tag)
-        log("Creating order file Node number " + str(self.node_num))
+        self.logger.info("Creating order file Node number " + str(self.node_num))
         self.dump_file(bid_, self.bid_file)
-        log("Creating task file for Node number " + str(self.node_num))
+        self.logger.info("Creating task file for Node number " + str(self.node_num))
         self.dump_file(task_, self.task_file)
         self.status = State.CREATE_ORDER
 
     @threaded
     def create_order(self):
         self.status = State.PLACING_ORDER
-        log("Create order for Node " + str(self.node_num))
+        self.logger.info("Create order for Node " + str(self.node_num))
         self.bid_id = self.cli.order_create(self.bid_file)["id"]
         self.status = State.AWAITING_DEAL
-        log("Order for Node " + self.node_num + " is " + self.bid_id)
+        self.logger.info("Order for Node " + self.node_num + " is " + self.bid_id)
 
     @threaded
     def start_task(self):
         # Start task on node
         self.status = State.STARTING_TASK
-        log("Starting task on node " + str(self.node_num) + "...")
+        self.logger.info("Starting task on node " + str(self.node_num) + "...")
         task = self.cli.task_start(self.deal_id, self.task_file)
         if not task:
-            log("Failed to start task (Node " + str(self.node_num) + ") on deal " + self.deal_id +
+            self.logger.info("Failed to start task (Node " + str(self.node_num) + ") on deal " + self.deal_id +
                 ". Closing deal and blacklisting counterparty worker's address...")
             self.status = State.TASK_FAILED_TO_START
         else:
-            log("Task (Node " + str(self.node_num) + ") started: deal " + self.deal_id + " with task_id " + task["id"])
+            self.logger.info("Task (Node " + str(self.node_num) + ") started: deal " + self.deal_id + " with task_id " + task["id"])
             self.task_id = task["id"]
             self.status = State.TASK_RUNNING
 
     @threaded
     def close_deal(self, state_after, blacklist=False):
         # Close deal on node
-        log("Saving logs deal_id " + self.deal_id + " task_id " + self.task_id)
+        self.logger.info("Saving logs deal_id " + self.deal_id + " task_id " + self.task_id)
         if self.status == State.TASK_FAILED or self.status == State.TASK_BROKEN:
             self.save_task_logs("out/fail_")
         if self.status == State.TASK_FINISHED:
             self.save_task_logs("out/success_")
-        log("Closing deal " + self.deal_id + (" with blacklisting worker" if blacklist else "") + " ...")
+        self.logger.info("Closing deal " + self.deal_id + (" with blacklisting worker" if blacklist else "") + " ...")
         self.cli.deal_close(self.deal_id, blacklist)
         self.status = state_after
 
@@ -109,10 +110,10 @@ class Node:
         if task_list and len(task_list.keys()) > 0:
             if "error" in task_list.keys() or "message" in task_list.keys():
                 if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
-                    log("Deal " + self.deal_id + " was closed")
+                    self.logger.info("Deal " + self.deal_id + " was closed")
                     self.status = State.DEAL_DISAPPEARED
                     return
-                log("Cannot retrieve task list of deal " + self.deal_id + ", worker is offline?")
+                self.logger.info("Cannot retrieve task list of deal " + self.deal_id + ", worker is offline?")
                 self.status = State.TASK_FAILED
                 return
             task_status = self.cli.task_status(self.deal_id, self.task_id)
@@ -120,38 +121,38 @@ class Node:
                 status_ = task_status["status"]
             else:
                 if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
-                    log("Deal " + self.deal_id + " was closed")
+                    self.logger.info("Deal " + self.deal_id + " was closed")
                     self.status = State.DEAL_DISAPPEARED
                     return
                 else:
-                    log("Cannot retrieve task status of deal " + self.deal_id +
+                    self.logger.info("Cannot retrieve task status of deal " + self.deal_id +
                         ", task_id " + self.task_id + " worker is offline?")
                     self.status = State.TASK_FAILED
                     return
             time_ = str(int(float(int(task_status["uptime"]) / 1000000000)))
             if status_ == "RUNNING":
-                log("Task " + self.task_id + " on deal " + self.deal_id + " (Node " + self.node_num +
+                self.logger.info("Task " + self.task_id + " on deal " + self.deal_id + " (Node " + self.node_num +
                     ") is running. Uptime is " + time_ + " seconds")
             if status_ == "SPOOLING":
-                log(
+                self.logger.info(
                     "Task " + self.task_id + " on deal " + self.deal_id +
                     " (Node " + self.node_num + ") is uploading...")
                 self.status = State.STARTING_TASK
             if status_ == "BROKEN":
                 if int(time_) < self.config["ets"]:
-                    log("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
+                    self.logger.info("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
                         " (Node " + self.node_num + ") before ETS." +
                         " Closing deal and blacklisting counterparty worker's address...")
                     self.status = State.TASK_FAILED
                 else:
-                    log("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
+                    self.logger.info("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
                         " (Node " + self.node_num + ") after ETS." +
                         " Closing deal and recreate order...")
                     self.status = State.TASK_BROKEN
             if status_ == "FINISHED":
-                log("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
+                self.logger.info("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
                     " ) is finished. Uptime is " + time_ + "  seconds")
-                log("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
+                self.logger.info("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
                     " ) success. Fetching log, shutting down node...")
                 self.status = State.TASK_FINISHED
 
