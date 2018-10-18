@@ -46,9 +46,9 @@ class Node:
         self.status = status
         self.cli = cli_
         self.node_num = str(node_num)
-        self.node_tag = tag + "_" + self.node_num
-        self.bid_file = "out/orders/" + self.node_tag + ".yaml"
-        self.task_file = "out/tasks/" + self.node_tag + ".yaml"
+        self.node_tag = "{}_{}".format(tag, self.node_num)
+        self.bid_file = "out/orders/{}.yaml".format(self.node_tag)
+        self.task_file = "out/tasks/{}.yaml".format(self.node_tag)
         self.deal_id = deal_id
         self.task_id = task_id
         self.bid_id = bid_id
@@ -63,44 +63,46 @@ class Node:
     def create_yaml(self):
         bid_ = template_bid(self.config, self.node_tag, self.counterparty)
         task_ = template_task(self.config["template_file"], self.node_tag)
-        self.logger.info("Creating order file Node number " + str(self.node_num))
+        self.logger.info("Creating order file Node number {}".format(self.node_num))
         self.dump_file(bid_, self.bid_file)
-        self.logger.info("Creating task file for Node number " + str(self.node_num))
+        self.logger.info("Creating task file for Node number {}".format(self.node_num))
         self.dump_file(task_, self.task_file)
         self.status = State.CREATE_ORDER
 
     @threaded
     def create_order(self):
         self.status = State.PLACING_ORDER
-        self.logger.info("Create order for Node " + str(self.node_num))
+        self.logger.info("Create order for Node {}".format(self.node_num))
         self.bid_id = self.cli.order_create(self.bid_file)["id"]
         self.status = State.AWAITING_DEAL
-        self.logger.info("Order for Node " + self.node_num + " is " + self.bid_id)
+        self.logger.info("Order for Node {} is {}".format(self.node_num, self.bid_id))
 
     @threaded
     def start_task(self):
         # Start task on node
         self.status = State.STARTING_TASK
-        self.logger.info("Starting task on node " + str(self.node_num) + "...")
+        self.logger.info("Starting task on node {} ...".format(self.node_num))
         task = self.cli.task_start(self.deal_id, self.task_file)
         if not task:
-            self.logger.info("Failed to start task (Node " + str(self.node_num) + ") on deal " + self.deal_id +
-                ". Closing deal and blacklisting counterparty worker's address...")
+            self.logger.info("Failed to start task (Node {}) on deal {}. Closing deal and blacklisting counterparty "
+                             "worker's address...".format(self.node_num, self.deal_id))
             self.status = State.TASK_FAILED_TO_START
         else:
-            self.logger.info("Task (Node " + str(self.node_num) + ") started: deal " + self.deal_id + " with task_id " + task["id"])
+            self.logger.info("Task (Node {}) started: deal {} with task_id {}"
+                             .format(self.node_num, self.deal_id, task["id"]))
             self.task_id = task["id"]
             self.status = State.TASK_RUNNING
 
     @threaded
     def close_deal(self, state_after, blacklist=False):
         # Close deal on node
-        self.logger.info("Saving logs deal_id " + self.deal_id + " task_id " + self.task_id)
+        self.logger.info("Saving logs deal_id {} task_id {}".format(self.deal_id, self.task_id))
         if self.status == State.TASK_FAILED or self.status == State.TASK_BROKEN:
             self.save_task_logs("out/fail_")
         if self.status == State.TASK_FINISHED:
             self.save_task_logs("out/success_")
-        self.logger.info("Closing deal " + self.deal_id + (" with blacklisting worker" if blacklist else "") + " ...")
+        self.logger.info("Closing deal {}{}..."
+                         .format(self.deal_id, (" with blacklisting worker " if blacklist else " ")))
         self.cli.deal_close(self.deal_id, blacklist)
         self.status = state_after
 
@@ -110,10 +112,11 @@ class Node:
         if task_list and len(task_list.keys()) > 0:
             if "error" in task_list.keys() or "message" in task_list.keys():
                 if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
-                    self.logger.info("Deal " + self.deal_id + " was closed")
+                    self.logger.info("Deal {} was closed".format(self.deal_id))
                     self.status = State.DEAL_DISAPPEARED
                     return
-                self.logger.info("Cannot retrieve task list of deal " + self.deal_id + ", worker is offline?")
+                self.logger.error("Cannot retrieve task list of deal {}, worker is offline?".format(self.deal_id))
+                self.logger.error("Dump task list response: {}".format(task_list))
                 self.status = State.TASK_FAILED
                 return
             task_status = self.cli.task_status(self.deal_id, self.task_id)
@@ -121,44 +124,44 @@ class Node:
                 status_ = task_status["status"]
             else:
                 if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
-                    self.logger.info("Deal " + self.deal_id + " was closed")
+                    self.logger.info("Deal {} was closed".format(self.deal_id))
                     self.status = State.DEAL_DISAPPEARED
                     return
                 else:
-                    self.logger.info("Cannot retrieve task status of deal " + self.deal_id +
-                        ", task_id " + self.task_id + " worker is offline?")
+                    self.logger.error("Cannot retrieve task status of deal {},"
+                                      " task_id {} worker is offline?".format(self.deal_id, self.task_id))
+                    self.logger.error("Dump of task status response: {}".format(task_status))
                     self.status = State.TASK_FAILED
                     return
             time_ = str(int(float(int(task_status["uptime"]) / 1000000000)))
             if status_ == "RUNNING":
-                self.logger.info("Task " + self.task_id + " on deal " + self.deal_id + " (Node " + self.node_num +
-                    ") is running. Uptime is " + time_ + " seconds")
+                self.logger.info("Task {} on deal {} (Node {}) is running. Uptime is {} seconds"
+                                 .format(self.task_id, self.deal_id, self.node_num, time_))
             if status_ == "SPOOLING":
-                self.logger.info(
-                    "Task " + self.task_id + " on deal " + self.deal_id +
-                    " (Node " + self.node_num + ") is uploading...")
+                self.logger.info("Task {} on deal {} (Node {}) is uploading..."
+                                 .format(self.task_id, self.deal_id, self.node_num))
                 self.status = State.STARTING_TASK
             if status_ == "BROKEN":
                 if int(time_) < self.config["ets"]:
-                    self.logger.info("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
-                        " (Node " + self.node_num + ") before ETS." +
-                        " Closing deal and blacklisting counterparty worker's address...")
+                    self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) before ETS."
+                                      " Closing deal and blacklisting counterparty worker's address..."
+                                      .format(time_, self.deal_id, self.node_num))
                     self.status = State.TASK_FAILED
                 else:
-                    self.logger.info("Task has failed (" + time_ + " seconds) on deal " + self.deal_id +
-                        " (Node " + self.node_num + ") after ETS." +
-                        " Closing deal and recreate order...")
+                    self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) after ETS."
+                                      " Closing deal and recreate order..."
+                                      .format(time_, self.deal_id, self.node_num))
                     self.status = State.TASK_BROKEN
             if status_ == "FINISHED":
-                self.logger.info("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
-                    " ) is finished. Uptime is " + time_ + "  seconds")
-                self.logger.info("Task " + self.task_id + "  on deal " + self.deal_id + " (Node " + self.node_num +
-                    " ) success. Fetching log, shutting down node...")
+                self.logger.info("Task {}  on deal {} (Node {} ) is finished. Uptime is {}  seconds"
+                                 .format(self.task_id, self.deal_id, self.node_num, time_))
+                self.logger.info("Task {}  on deal {} (Node {} ) success. Fetching log, shutting down node..."
+                                 .format(self.task_id, self.deal_id, self.node_num))
                 self.status = State.TASK_FINISHED
 
     def save_task_logs(self, prefix):
         self.cli.save_task_logs(self.deal_id, self.task_id, "1000000",
-                                prefix + self.node_tag + "-deal-" + self.deal_id + ".log")
+                                "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
 
     def dump_file(self, data, filename):
         with open(filename, 'w+') as file:
