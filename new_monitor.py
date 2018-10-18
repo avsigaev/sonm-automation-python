@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import base64
 import errno
 import logging
@@ -12,6 +11,7 @@ from logging.config import dictConfig
 from apscheduler.schedulers.background import BackgroundScheduler
 from pathlib2 import Path
 from ruamel.yaml import YAML
+from tabulate import tabulate
 
 from source.cli import Cli
 from source.node import Node, State
@@ -118,7 +118,9 @@ def watch(nodes_num_, nodes_, cli_):
     if len([node_ for node_ in nodes_ if node_.status != State.WORK_COMPLETED]) == 0:
         logger.info("All nodes completed their work")
         scheduler.remove_job("sonm_watch")
-    logger.info("Nodes:\n" + '\n '.join("\t{0.node_num} ({0.status.name})".format(n) for n in nodes_))
+    tabul_nodes = [[n.node_num, n.bid_id, n.deal_id, n.task_uptime, n.status.name] for n in nodes_]
+    logger.info("Nodes:\n" +
+                tabulate(tabul_nodes, ["Node", "Order id", "Deal id", "Task uptime", "Node status"], tablefmt="grid"))
 
 
 def check_opened_deals(cli_, nodes_, nodes_num_):

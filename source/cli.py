@@ -70,7 +70,9 @@ class Cli:
             resp = self.exec(["task", "list", deal_id, "--timeout=2m"], retry=True)
             if resp and "error" in resp.keys():
                 if attempt > attempts:
+                    self.logger.error("Received response: {}".format(resp))
                     break
+                self.logger.error("Attempt {},  received response: {}".format(attempt, resp))
                 attempt += 1
                 time.sleep(sleep_time)
             return resp

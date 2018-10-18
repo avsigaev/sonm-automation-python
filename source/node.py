@@ -55,6 +55,7 @@ class Node:
         self.config = config
         self.counterparty = counterparty
         self.logger = logging.getLogger("monitor")
+        self.task_uptime = 0
 
     @classmethod
     def create_empty(cls, cli_, node_num, tag, config, counterparty):
@@ -137,6 +138,7 @@ class Node:
             if status_ == "RUNNING":
                 self.logger.info("Task {} on deal {} (Node {}) is running. Uptime is {} seconds"
                                  .format(self.task_id, self.deal_id, self.node_num, time_))
+                self.task_uptime = time_
             if status_ == "SPOOLING":
                 self.logger.info("Task {} on deal {} (Node {}) is uploading..."
                                  .format(self.task_id, self.deal_id, self.node_num))
