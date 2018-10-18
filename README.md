@@ -10,7 +10,7 @@
   `pip3 install -r requirements.txt`
 
 **Linux:**
-  `apt-get install python3-pip`
+  `apt-get install python3 python3-pip`
   
   `pip3 install -r requirements.txt`
 
