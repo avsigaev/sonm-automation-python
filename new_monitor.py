@@ -136,15 +136,14 @@ def check_opened_deals(cli_, nodes_, nodes_num_):
                     node.bid_id = order_["id"]
                     node.status = State.AWAITING_DEAL
         if deal_list and deal_list['deals']:
-            for _, v in deal_list.items():
-                for d in v:
-                    if d["bidID"] not in all_orders:
-                        all_orders.append(d["bidID"])
-                    if d["bidID"] == node.bid_id:
-                        node.deal_id = d["id"]
-                        if node.status == State.AWAITING_DEAL:
-                            node.status = State.DEAL_OPENED
-                            logger.info("Deal " + node.deal_id + " opened (Node " + node.node_num + ") ")
+            for d in [d_["deal"] for d_ in deal_list['deals']]:
+                if d["bidID"] not in all_orders:
+                    all_orders.append(d["bidID"])
+                if d["bidID"] == node.bid_id:
+                    node.deal_id = d["id"]
+                    if node.status == State.AWAITING_DEAL:
+                        node.status = State.DEAL_OPENED
+                        logger.info("Deal " + node.deal_id + " opened (Node " + node.node_num + ") ")
     # known_orders = [node_.bid_id for node_ in nodes_ if node_.status.value > 1]
     # result_list = [x for x in all_orders if x not in known_orders]
     # all_orders = [ord_["id"] for ord_ in orders_["orders"]]
@@ -163,24 +162,23 @@ def init_nodes_state(cli_, nodes_num_, config, counter_party):
     # get deals
     deals_ = cli_.deal_list(nodes_num_)
     if deals_ and deals_['deals']:
-        for _, v in deals_.items():
-            for d in v:
-                status = State.DEAL_OPENED
-                deal_status = cli_.deal_status(d["id"])
-                ntag = parse_tag(deal_status["bid"]["tag"])
-                node_num = ntag.split("_")[len(ntag.split("_")) - 1]
-                task_id = ""
-                if "resources" not in deal_status:
-                    logger.info(
-                        "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
-                    status = State.TASK_FAILED
-                if "running" in deal_status and len(list(deal_status["running"].keys())) > 0:
-                    task_id = list(deal_status["running"].keys())[0]
-                    status = State.TASK_RUNNING
-                bid_id_ = deal_status["bid"]["id"]
-                node_ = Node(status, cli_, node_num, config["tag"], d["id"], task_id, bid_id_, config, counter_party)
-                logger.info("Found deal, id " + d["id"] + " (Node " + node_num + ")")
-                nodes_.append(node_)
+        for d in [d_["deal"] for d_ in deals_['deals']]:
+            status = State.DEAL_OPENED
+            deal_status = cli_.deal_status(d["id"])
+            ntag = parse_tag(deal_status["bid"]["tag"])
+            node_num = ntag.split("_")[len(ntag.split("_")) - 1]
+            task_id = ""
+            if "resources" not in deal_status:
+                logger.info(
+                    "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
+                status = State.TASK_FAILED
+            if "running" in deal_status and len(list(deal_status["running"].keys())) > 0:
+                task_id = list(deal_status["running"].keys())[0]
+                status = State.TASK_RUNNING
+            bid_id_ = deal_status["bid"]["id"]
+            node_ = Node(status, cli_, node_num, config["tag"], d["id"], task_id, bid_id_, config, counter_party)
+            logger.info("Found deal, id " + d["id"] + " (Node " + node_num + ")")
+            nodes_.append(node_)
 
     # get orders
     orders_ = cli_.order_list(nodes_num_)

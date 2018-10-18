@@ -6,7 +6,6 @@ import threading
 from ruamel import yaml
 
 from source.cli import Cli
-from source.log import log
 from new_monitor import validate_eth_addr, load_cfg, set_sonmcli
 from source.yaml_gen import template_bid
 
@@ -18,11 +17,11 @@ def dump_file(data, filename):
 
 def recreate_order(order):
     node_num, ntag = get_tag_num(order)
-    log("Cancelling order " + order["id"])
+    print("Cancelling order " + order["id"])
     SONM_CLI.exec(["order", "cancel", order["id"]])
     bidfile_ = "out/orders/" + ntag + ".yaml"
     order = SONM_CLI.exec(["order", "create", bidfile_])
-    log("Order for Node " + node_num + " is " + order["id"])
+    print("Order for Node " + node_num + " is " + order["id"])
 
 
 def get_orders_list(number_of_nodes):
@@ -30,7 +29,7 @@ def get_orders_list(number_of_nodes):
     if orders and orders["orders"] is not None:
         return orders["orders"]
     else:
-        log("No active orders found.")
+        print("No active orders found.")
         exit(0)
 
 
@@ -40,7 +39,7 @@ def create_new_yaml_files(orders_list, config):
         node_num, ntag = get_tag_num(order)
         bid_ = template_bid(config, ntag, counterparty)
         bid_file = "out/orders/" + ntag + ".yaml"
-        log("Creating order file Node " + str(node_num))
+        print("Creating order file Node " + str(node_num))
         dump_file(bid_, bid_file)
 
 
