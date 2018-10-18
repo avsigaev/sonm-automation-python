@@ -75,4 +75,5 @@ class Cli:
                 self.logger.error("Attempt {},  received response: {}".format(attempt, resp))
                 attempt += 1
                 time.sleep(sleep_time)
+                continue
             return resp
