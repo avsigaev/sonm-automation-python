@@ -196,8 +196,11 @@ class Node:
                 sleep_time = 1
             elif self.status == State.TASK_RUNNING:
                 sleep_time = self.check_task_status()
-            elif self.status == State.TASK_FAILED or self.status == State.TASK_FAILED_TO_START:
+            elif self.status == State.TASK_FAILED_TO_START:
                 self.close_deal(State.CREATE_ORDER, blacklist=True)
+                sleep_time = 1
+            elif self.status == State.TASK_FAILED:
+                self.close_deal(State.CREATE_ORDER)
                 sleep_time = 1
             elif self.status == State.TASK_BROKEN:
                 self.close_deal(State.CREATE_ORDER)
