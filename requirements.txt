@@ -1,3 +1,4 @@
+tabulate
 apscheduler
 jinja2
 ruamel.yaml

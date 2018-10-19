@@ -6,7 +6,8 @@ import threading
 from ruamel import yaml
 
 from source.cli import Cli
-from new_monitor import validate_eth_addr, load_cfg, set_sonmcli
+from source.utils import load_cfg, set_sonmcli
+from new_monitor import validate_eth_addr
 from source.yaml_gen import template_bid
 
 

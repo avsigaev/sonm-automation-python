@@ -6,7 +6,7 @@ from threading import Thread
 
 from ruamel import yaml
 
-from source.utils import parse_tag
+from source.utils import parse_tag, load_cfg
 from source.yaml_gen import template_bid, template_task
 
 
@@ -44,35 +44,45 @@ def threaded(fn):
 
 
 class Node:
-    def __init__(self, status, cli_, node_num, tag, deal_id, task_id, bid_id, config, counterparty):
+    def __init__(self, status, cli_, node_num, deal_id, task_id, bid_id, counterparty):
+        self.config = self.reload_config()
         self.status = status
         self.cli = cli_
         self.node_num = str(node_num)
-        self.node_tag = "{}_{}".format(tag, self.node_num)
+        self.node_tag = "{}_{}".format(self.config["tag"], self.node_num)
         self.bid_file = "out/orders/{}.yaml".format(self.node_tag)
         self.task_file = "out/tasks/{}.yaml".format(self.node_tag)
         self.deal_id = deal_id
         self.task_id = task_id
         self.bid_id = bid_id
-        self.config = config
         self.counterparty = counterparty
         self.logger = logging.getLogger("monitor")
         self.task_uptime = 0
+        self.logger.info("Creating task file for Node number {}".format(self.node_num))
+        self.create_bid_yaml()
+        self.logger.info("Creating order file Node number {}".format(self.node_num))
+        self.create_task_yaml()
 
     @classmethod
-    def create_empty(cls, cli_, node_num, tag, config, counterparty):
-        return cls(State.START, cli_, node_num, tag, "", "", "", config, counterparty)
+    def create_empty(cls, cli_, node_num, counterparty):
+        return cls(State.START, cli_, node_num, "", "", "", counterparty)
 
-    def create_yaml(self):
-        bid_ = template_bid(self.config, self.node_tag, self.counterparty)
+    @staticmethod
+    def reload_config():
+        return load_cfg()
+
+    def create_task_yaml(self):
         task_ = template_task(self.config["template_file"], self.node_tag)
-        self.logger.info("Creating order file Node number {}".format(self.node_num))
-        self.dump_file(bid_, self.bid_file)
-        self.logger.info("Creating task file for Node number {}".format(self.node_num))
         self.dump_file(task_, self.task_file)
-        self.status = State.CREATE_ORDER
+
+    def create_bid_yaml(self):
+        bid_ = template_bid(self.config, self.node_tag, self.counterparty)
+        self.dump_file(bid_, self.bid_file)
 
     def create_order(self):
+        self.reload_config()
+        self.create_task_yaml()
+        self.create_bid_yaml()
         self.status = State.PLACING_ORDER
         self.logger.info("Create order for Node {}".format(self.node_num))
         self.bid_id = self.cli.order_create(self.bid_file)["id"]
@@ -84,14 +94,20 @@ class Node:
         if order_status["orderStatus"] == 1 and order_status["dealID"] != "0":
             self.deal_id = order_status["dealID"]
             self.status = State.DEAL_OPENED
+            self.logger.info("Found deal (id {}) for order {} (Node {})"
+                             .format(self.deal_id, self.bid_id, self.node_num))
             return 1
         elif order_status["orderStatus"] == 1 and order_status["dealID"] == "0":
             orders_ = self.cli.order_list(nodes_num)
             for order_ in list(orders_["orders"]):
                 if parse_tag(order_["tag"]) == self.node_tag:
+                    self.logger.info("Found new order {} (Node {}) (old order {})"
+                                     .format(order_["id"], self.node_num, self.bid_id))
                     self.bid_id = order_["id"]
                     self.status = State.AWAITING_DEAL
                     return 30
+            self.logger.info("Order {} was cancelled (Node {}), create new order".format(self.bid_id, self.node_num))
+            self.bid_id = ""
             self.status = State.CREATE_ORDER
             return 1
         return 30
@@ -189,11 +205,7 @@ class Node:
     def watch_node(self, nodes_num):
         sleep_time = 1
         while self.status != State.WORK_COMPLETED:
-            if self.status == State.START:
-                self.create_yaml()
-                self.create_order()
-                sleep_time = 30
-            elif self.status == State.CREATE_ORDER:
+            if self.status == State.START or self.status == State.CREATE_ORDER:
                 self.create_order()
                 sleep_time = 30
             elif self.status == State.AWAITING_DEAL:
