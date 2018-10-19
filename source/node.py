@@ -1,10 +1,12 @@
 import logging
+import time
 from concurrent.futures import Future
 from enum import Enum
 from threading import Thread
 
 from ruamel import yaml
 
+from source.utils import parse_tag
 from source.yaml_gen import template_bid, template_task
 
 
@@ -70,7 +72,6 @@ class Node:
         self.dump_file(task_, self.task_file)
         self.status = State.CREATE_ORDER
 
-    @threaded
     def create_order(self):
         self.status = State.PLACING_ORDER
         self.logger.info("Create order for Node {}".format(self.node_num))
@@ -78,7 +79,23 @@ class Node:
         self.status = State.AWAITING_DEAL
         self.logger.info("Order for Node {} is {}".format(self.node_num, self.bid_id))
 
-    @threaded
+    def check_order(self, nodes_num):
+        order_status = self.cli.order_status(self.bid_id)
+        if order_status["orderStatus"] == "1" and order_status["dealID"] != 0:
+            self.deal_id = order_status["dealID"]
+            self.status = State.DEAL_OPENED
+            return 30
+        elif order_status["orderStatus"] == "1" and order_status["dealID"] == 0:
+            orders_ = self.cli.order_list(nodes_num)
+            for order_ in list(orders_["orders"]):
+                if parse_tag(order_["tag"]) == self.node_tag:
+                    self.bid_id = order_["id"]
+                    self.status = State.AWAITING_DEAL
+                    return 30
+            self.status = State.CREATE_ORDER
+            return 1
+        return 30
+
     def start_task(self):
         # Start task on node
         self.status = State.STARTING_TASK
@@ -94,7 +111,6 @@ class Node:
             self.task_id = task["id"]
             self.status = State.TASK_RUNNING
 
-    @threaded
     def close_deal(self, state_after, blacklist=False):
         # Close deal on node
         self.logger.info("Saving logs deal_id {} task_id {}".format(self.deal_id, self.task_id))
@@ -111,7 +127,6 @@ class Node:
         self.task_id = ""
         self.status = state_after
 
-    @threaded
     def check_task_status(self):
         task_list = self.cli.task_list(self.deal_id)
         if task_list and len(task_list.keys()) > 0:
@@ -165,10 +180,44 @@ class Node:
                                  .format(self.task_id, self.deal_id, self.node_num))
                 self.status = State.TASK_FINISHED
 
+    @threaded
+    def watch_node(self, nodes_num):
+        sleep_time = 1
+        while self.status != State.WORK_COMPLETED:
+            if self.status == State.START:
+                self.create_yaml()
+                self.create_order()
+                sleep_time = 30
+            elif self.status == State.CREATE_ORDER:
+                self.create_order()
+                sleep_time = 30
+            elif self.status == State.AWAITING_DEAL:
+                sleep_time = self.check_order(nodes_num)
+            elif self.status == State.DEAL_OPENED:
+                self.start_task()
+                sleep_time = 60
+            elif self.status == State.DEAL_DISAPPEARED:
+                self.status = State.CREATE_ORDER
+                sleep_time = 1
+            elif self.status == State.TASK_RUNNING:
+                self.check_task_status()
+                sleep_time = 60
+            elif self.status == State.TASK_FAILED or self.status == State.TASK_FAILED_TO_START:
+                self.close_deal(State.CREATE_ORDER, blacklist=True)
+                sleep_time = 1
+            elif self.status == State.TASK_BROKEN:
+                self.close_deal(State.CREATE_ORDER)
+                sleep_time = 1
+            elif self.status == State.TASK_FINISHED:
+                self.close_deal(State.WORK_COMPLETED)
+                sleep_time = 1
+            time.sleep(sleep_time)
+
     def save_task_logs(self, prefix):
         self.cli.save_task_logs(self.deal_id, self.task_id, "1000000",
                                 "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
 
-    def dump_file(self, data, filename):
+    @staticmethod
+    def dump_file(data, filename):
         with open(filename, 'w+') as file:
             yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
