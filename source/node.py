@@ -162,7 +162,7 @@ class Node:
                     self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) before ETS."
                                       " Closing deal and blacklisting counterparty worker's address..."
                                       .format(time_, self.deal_id, self.node_num))
-                    self.status = State.TASK_FAILED
+                    self.status = State.TASK_FAILED_TO_START
                     return 1
                 else:
                     self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) after ETS."
