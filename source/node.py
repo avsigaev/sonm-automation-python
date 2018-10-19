@@ -45,7 +45,8 @@ def threaded(fn):
 
 class Node:
     def __init__(self, status, cli_, node_num, deal_id, task_id, bid_id, counterparty):
-        self.config = self.reload_config()
+        self.config = {}
+        self.reload_config()
         self.status = status
         self.cli = cli_
         self.node_num = str(node_num)
@@ -67,9 +68,8 @@ class Node:
     def create_empty(cls, cli_, node_num, counterparty):
         return cls(State.START, cli_, node_num, "", "", "", counterparty)
 
-    @staticmethod
-    def reload_config():
-        return load_cfg()
+    def reload_config(self):
+        self.config = load_cfg()
 
     def create_task_yaml(self):
         task_ = template_task(self.config["template_file"], self.node_tag)
