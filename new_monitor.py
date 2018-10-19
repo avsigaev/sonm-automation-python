@@ -110,10 +110,10 @@ def print_state(nodes_):
                          tablefmt="grid"))
 
 
-def watch(nodes_num_, nodes_):
+def watch(nodes_):
     futures = []
     for node in nodes_:
-        futures.append(node.watch_node(nodes_num_))
+        futures.append(node.watch_node())
         time.sleep(1)
     for future in futures:
         future.result()
@@ -129,7 +129,7 @@ def main():
     try:
         scheduler.start()
         scheduler.add_job(print_state, 'interval', kwargs={"nodes_": nodes_}, seconds=60, id='print_state')
-        watch(nodes_num_, nodes_)
+        watch(nodes_)
         scheduler.shutdown()
         print_state(nodes_)
         logger.info("Work completed")

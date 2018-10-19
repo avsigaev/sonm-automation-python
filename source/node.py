@@ -89,23 +89,16 @@ class Node:
         self.status = State.AWAITING_DEAL
         self.logger.info("Order for Node {} is {}".format(self.node_num, self.bid_id))
 
-    def check_order(self, nodes_num):
+    def check_order(self):
         order_status = self.cli.order_status(self.bid_id)
-        if order_status["orderStatus"] == 1 and order_status["dealID"] != "0":
+        self.logger.info("Checking order {} (Node {}) for new deal".format(self.bid_id, self.node_num))
+        if order_status and order_status["orderStatus"] == 1 and order_status["dealID"] != "0":
             self.deal_id = order_status["dealID"]
             self.status = State.DEAL_OPENED
-            self.logger.info("Found deal (id {}) for order {} (Node {})"
-                             .format(self.deal_id, self.bid_id, self.node_num))
+            self.logger.info("For order {} (Node {}) opened new deal {}"
+                             .format(self.bid_id, self.node_num, self.deal_id))
             return 1
-        elif order_status["orderStatus"] == 1 and order_status["dealID"] == "0":
-            orders_ = self.cli.order_list(nodes_num)
-            for order_ in list(orders_["orders"]):
-                if parse_tag(order_["tag"]) == self.node_tag:
-                    self.logger.info("Found new order {} (Node {}) (old order {})"
-                                     .format(order_["id"], self.node_num, self.bid_id))
-                    self.bid_id = order_["id"]
-                    self.status = State.AWAITING_DEAL
-                    return 30
+        elif order_status and order_status["orderStatus"] == 1 and order_status["dealID"] == "0":
             self.logger.info("Order {} was cancelled (Node {}), create new order".format(self.bid_id, self.node_num))
             self.bid_id = ""
             self.status = State.CREATE_ORDER
@@ -202,14 +195,14 @@ class Node:
         return 60
 
     @threaded
-    def watch_node(self, nodes_num):
+    def watch_node(self):
         sleep_time = 1
         while self.status != State.WORK_COMPLETED:
             if self.status == State.START or self.status == State.CREATE_ORDER:
                 self.create_order()
                 sleep_time = 30
             elif self.status == State.AWAITING_DEAL:
-                sleep_time = self.check_order(nodes_num)
+                sleep_time = self.check_order()
             elif self.status == State.DEAL_OPENED:
                 self.start_task()
                 sleep_time = 60
