@@ -63,7 +63,7 @@ class Cli:
     def task_start(self, deal_id, task_file):
         return self.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
 
-    def task_list(self, deal_id, attempts=5, sleep_time=5):
+    def task_list(self, deal_id, attempts=10, sleep_time=20):
         # TODO temp workaround!!!
         attempt = 1
         while True:

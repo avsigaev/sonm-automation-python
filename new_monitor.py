@@ -158,6 +158,7 @@ def main():
         scheduler.start()
         scheduler.add_job(print_state, 'interval', kwargs={"nodes_": nodes_}, seconds=10, id='print_state')
         watch(nodes_num_, nodes_)
+        print_state(nodes_)
         scheduler.shutdown()
     except (KeyboardInterrupt, SystemExit):
         pass
