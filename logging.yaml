@@ -3,7 +3,7 @@ version: 1
 disable_existing_loggers: False
 formatters:
     simple:
-        format: "%(asctime)s - %(levelname)s - %(message)s"
+        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 handlers:
     console:
@@ -21,8 +21,21 @@ handlers:
         backupCount: 20
         encoding: utf8
 
+    http_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: INFO
+        formatter: simple
+        filename: http_monitor.log
+        maxBytes: 10485760 # 10MB
+        backupCount: 20
+        encoding: utf8
+
 loggers:
     monitor:
         level: INFO
         handlers: [console, info_file_handler]
+        propagate: no
+    monitor_http:
+        level: INFO
+        handlers: [http_file_handler]
         propagate: no

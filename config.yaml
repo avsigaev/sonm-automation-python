@@ -54,3 +54,6 @@ gpumem: 2900
 # MH/s, integers only
 ethhashrate: 0
 
+http_server:
+  run: true
+  port: 8081
