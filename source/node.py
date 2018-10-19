@@ -144,13 +144,13 @@ class Node:
         self.status = state_after
 
     def check_task_status(self):
+        if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
+            self.logger.info("Deal {} was closed".format(self.deal_id))
+            self.status = State.DEAL_DISAPPEARED
+            return 1
         task_list = self.cli.task_list(self.deal_id)
         if task_list and len(task_list.keys()) > 0:
             if "error" in task_list.keys() or "message" in task_list.keys():
-                if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
-                    self.logger.info("Deal {} was closed".format(self.deal_id))
-                    self.status = State.DEAL_DISAPPEARED
-                    return 1
                 self.logger.error("Cannot retrieve task list of deal {}, worker is offline?".format(self.deal_id))
                 self.logger.error("Dump task list response: {}".format(task_list))
                 self.status = State.TASK_FAILED
@@ -159,16 +159,11 @@ class Node:
             if task_status and "status" in task_status:
                 status_ = task_status["status"]
             else:
-                if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
-                    self.logger.info("Deal {} was closed".format(self.deal_id))
-                    self.status = State.DEAL_DISAPPEARED
-                    return 1
-                else:
-                    self.logger.error("Cannot retrieve task status of deal {},"
-                                      " task_id {} worker is offline?".format(self.deal_id, self.task_id))
-                    self.logger.error("Dump of task status response: {}".format(task_status))
-                    self.status = State.TASK_FAILED
-                    return 1
+                self.logger.error("Cannot retrieve task status of deal {},"
+                                  " task_id {} worker is offline?".format(self.deal_id, self.task_id))
+                self.logger.error("Dump of task status response: {}".format(task_status))
+                self.status = State.TASK_FAILED
+                return 1
             time_ = str(int(float(int(task_status["uptime"]) / 1000000000)))
             if status_ == "RUNNING":
                 self.logger.info("Task {} on deal {} (Node {}) is running. Uptime is {} seconds"
