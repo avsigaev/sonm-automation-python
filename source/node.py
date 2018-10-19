@@ -103,7 +103,7 @@ class Node:
             self.bid_id = ""
             self.status = State.CREATE_ORDER
             return 1
-        return 30
+        return 60
 
     def start_task(self):
         # Start task on node
@@ -200,7 +200,7 @@ class Node:
         while self.status != State.WORK_COMPLETED:
             if self.status == State.START or self.status == State.CREATE_ORDER:
                 self.create_order()
-                sleep_time = 30
+                sleep_time = 60
             elif self.status == State.AWAITING_DEAL:
                 sleep_time = self.check_order()
             elif self.status == State.DEAL_OPENED:
