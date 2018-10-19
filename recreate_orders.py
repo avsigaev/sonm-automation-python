@@ -55,8 +55,6 @@ def main():
     SONM_CLI = Cli(set_sonmcli())
     orders_list = get_orders_list(config["numberofnodes"])
     create_new_yaml_files(orders_list, config)
-    for order in orders_list:
-        threading.Thread(target=recreate_order, kwargs={'order': order}).start()
 
 
 if __name__ == "__main__":
