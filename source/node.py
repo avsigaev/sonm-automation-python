@@ -122,6 +122,10 @@ class Node:
         if deal_status and "deal" in deal_status and deal_status["deal"]["status"] == 2:
             self.logger.info("Deal {} was closed".format(self.deal_id))
             self.status = State.DEAL_DISAPPEARED
+            self.deal_id = ""
+            self.bid_id = ""
+            self.task_uptime = 0
+            self.task_id = ""
             return 1
         elif deal_status and "error" in deal_status:
             self.logger.error("Cannot retrieve status deal {}".format(self.deal_id))
