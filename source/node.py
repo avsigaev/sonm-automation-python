@@ -1,12 +1,10 @@
 import logging
 import time
-from concurrent.futures import Future
 from enum import Enum
-from threading import Thread
 
 from ruamel import yaml
 
-from source.utils import parse_tag, load_cfg
+from source.utils import load_cfg, threaded
 from source.yaml_gen import template_bid, template_task
 
 
@@ -24,23 +22,6 @@ class State(Enum):
     TASK_BROKEN = 10
     TASK_FINISHED = 11
     WORK_COMPLETED = 12
-
-
-def call_with_future(fn, future, args, kwargs):
-    try:
-        result = fn(*args, **kwargs)
-        future.set_result(result)
-    except Exception as exc:
-        future.set_exception(exc)
-
-
-def threaded(fn):
-    def wrapper(*args, **kwargs):
-        future = Future()
-        Thread(target=call_with_future, args=(fn, future, args, kwargs)).start()
-        return future
-
-    return wrapper
 
 
 class Node:
