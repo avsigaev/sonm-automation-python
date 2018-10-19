@@ -81,11 +81,11 @@ class Node:
 
     def check_order(self, nodes_num):
         order_status = self.cli.order_status(self.bid_id)
-        if order_status["orderStatus"] == "1" and order_status["dealID"] != 0:
+        if order_status["orderStatus"] == 1 and order_status["dealID"] != "0":
             self.deal_id = order_status["dealID"]
             self.status = State.DEAL_OPENED
-            return 30
-        elif order_status["orderStatus"] == "1" and order_status["dealID"] == 0:
+            return 1
+        elif order_status["orderStatus"] == 1 and order_status["dealID"] == "0":
             orders_ = self.cli.order_list(nodes_num)
             for order_ in list(orders_["orders"]):
                 if parse_tag(order_["tag"]) == self.node_tag:

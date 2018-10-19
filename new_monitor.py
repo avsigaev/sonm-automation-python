@@ -122,6 +122,10 @@ def init_nodes_state(cli_, nodes_num_, config, counter_party):
             nodes_.append(node_)
     if len(nodes_) == 0:
         nodes_ = get_nodes(cli_, config, counter_party)
+    elif len(nodes_) < nodes_num_:
+        live_nodes_nums = [n.node_num for n in nodes_]
+        for n_num in [n for n in range(1, nodes_num_+1) if str(n) not in live_nodes_nums]:
+            nodes_.append(Node.create_empty(cli_, n_num, config["tag"], config, counter_party))
     return nodes_
 
 
@@ -138,7 +142,6 @@ def print_state(nodes_):
 
 
 def watch(nodes_num_, nodes_):
-    # Check deals and change status to DEAL_OPENED
     futures = []
     for node in nodes_:
         futures.append(node.watch_node(nodes_num_))
@@ -156,7 +159,7 @@ def main():
     print('Press Ctrl+{0} to interrupt script'.format('Break' if os.name == 'nt' else 'C'))
     try:
         scheduler.start()
-        scheduler.add_job(print_state, 'interval', kwargs={"nodes_": nodes_}, seconds=10, id='print_state')
+        scheduler.add_job(print_state, 'interval', kwargs={"nodes_": nodes_}, seconds=60, id='print_state')
         watch(nodes_num_, nodes_)
         print_state(nodes_)
         scheduler.shutdown()
