@@ -18,9 +18,6 @@ ets: 180
 template_file: "claymore.yaml"
 #template_file: "task_template.yaml"
 
-#counterparty settings
-iteration_time: 10
-
 # optional, sets counterparty for orders to take, must be HEX(40) string. Will be removed automatically in case of error/not set
 counterparty: ""
 # Identity level of the counterparty. Can be "anonymous", "registered", "identified" and "professional".

@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-
-import base64
-import errno
 import logging
 import os
-import platform
 import re
 import time
 from logging.config import dictConfig
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from pathlib2 import Path
-from ruamel.yaml import YAML
+from tabulate import tabulate
 
 from source.cli import Cli
 from source.node import Node, State
+from source.utils import parse_tag, create_dir, load_cfg, set_sonmcli
 
 
 def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
@@ -23,26 +19,9 @@ def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
     """
     if os.path.exists(default_path):
         config = load_cfg(default_path)
-        # logging.config.dictConfig(config)
         dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
-
-
-def create_dir(dir_):
-    if not os.path.exists(dir_):
-        try:
-            os.makedirs(dir_)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
-
-
-def load_cfg(path='config.yaml'):
-    if os.path.exists(path):
-        path = Path(path)
-        yaml_ = YAML(typ='safe')
-        return yaml_.load(path)
 
 
 def validate_eth_addr(eth_addr):
@@ -55,21 +34,14 @@ def validate_eth_addr(eth_addr):
         return eth_addr
 
 
-def set_sonmcli():
-    if platform.system() == "Darwin":
-        return "sonmcli_darwin_x86_64"
-    else:
-        return "sonmcli"
-
-
 def init():
     create_dir("out/orders")
     create_dir("out/tasks")
 
     config = load_cfg()
-    config_keys = ["numberofnodes", "tag", "ets", "template_file", "iteration_time", "identity", "ramsize",
+    config_keys = ["numberofnodes", "tag", "ets", "template_file", "identity", "ramsize",
                    "storagesize", "cpucores", "sysbenchsingle", "sysbenchmulti", "netdownload", "netupload", "price",
-                   "overlay", "incoming", "gpucount", "gpumem", "ethhashrate"];
+                   "overlay", "incoming", "gpucount", "gpumem", "ethhashrate"]
     missed_keys = [key for key in config_keys if key not in config]
     if len(missed_keys) > 0:
         raise Exception("Missed keys: '" + "', '".join(missed_keys) + "'")
@@ -80,84 +52,14 @@ def init():
     return Cli(set_sonmcli()), config, counter_party
 
 
-def get_nodes(cli_, config, counterparty):
+def get_nodes(cli_, nodes_num_, counterparty):
     nodes_ = []
-    for n in range(config["numberofnodes"]):
-        nodes_.append(Node.create_empty(cli_, n + 1, config["tag"], config, counterparty))
+    for n in range(nodes_num_):
+        nodes_.append(Node.create_empty(cli_, n + 1, counterparty))
     return nodes_
 
 
-def watch(nodes_num_, nodes_, cli_):
-    # Check deals and change status to DEAL_OPENED
-    check_opened_deals(cli_, nodes_, nodes_num_)
-    futures = []
-    for node in nodes_:
-        if node.status == State.START:
-            node.create_yaml()
-            futures.append(node.create_order())
-            time.sleep(1)
-        elif node.status == State.CREATE_ORDER:
-            futures.append(node.create_order())
-        elif node.status == State.DEAL_OPENED:
-            node.start_task()
-        elif node.status == State.DEAL_DISAPPEARED:
-            node.status = State.CREATE_ORDER
-        elif node.status == State.TASK_RUNNING:
-            futures.append(node.check_task_status())
-        elif node.status == State.TASK_FAILED or node.status == State.TASK_FAILED_TO_START:
-            futures.append(node.close_deal(State.CREATE_ORDER, blacklist=True))
-        elif node.status == State.TASK_BROKEN:
-            futures.append(node.close_deal(State.CREATE_ORDER))
-        elif node.status == State.TASK_FINISHED:
-            futures.append(node.close_deal(State.WORK_COMPLETED))
-    for future in futures:
-        future.result()
-    # Delete nodes with finished tasks from node list
-    # (Create new list where status != DEAL_CLOSED)
-    nodes_.sort(key=lambda x: int(x.node_num), reverse=False)
-    if len([node_ for node_ in nodes_ if node_.status != State.WORK_COMPLETED]) == 0:
-        logger.info("All nodes completed their work")
-        scheduler.remove_job("sonm_watch")
-    logger.info("Nodes:\n" + '\n '.join("\t{0.node_num} ({0.status.name})".format(n) for n in nodes_))
-
-
-def check_opened_deals(cli_, nodes_, nodes_num_):
-    # Match deals and nodes
-    deal_list = cli_.deal_list(nodes_num_)
-    orders_ = cli_.order_list(nodes_num_)
-    all_orders = []
-
-    for node in [node_ for node_ in nodes_ if node_.status == State.AWAITING_DEAL]:
-        if orders_ and orders_["orders"] is not None:
-            for order_ in list(orders_["orders"]):
-                if order_["id"] not in all_orders:
-                    all_orders.append(order_["id"])
-                if parse_tag(order_["tag"]) == node.node_tag:
-                    node.bid_id = order_["id"]
-                    node.status = State.AWAITING_DEAL
-        if deal_list and deal_list['deals']:
-            for d in [d_["deal"] for d_ in deal_list['deals']]:
-                if d["bidID"] not in all_orders:
-                    all_orders.append(d["bidID"])
-                if d["bidID"] == node.bid_id:
-                    node.deal_id = d["id"]
-                    if node.status == State.AWAITING_DEAL:
-                        node.status = State.DEAL_OPENED
-                        logger.info("Deal " + node.deal_id + " opened (Node " + node.node_num + ") ")
-    # known_orders = [node_.bid_id for node_ in nodes_ if node_.status.value > 1]
-    # result_list = [x for x in all_orders if x not in known_orders]
-    # all_orders = [ord_["id"] for ord_ in orders_["orders"]]
-    # known_orders = [node_.bid_id for node_ in nodes_ if node_.status.value > 1]
-    # result_list = [x for x in all_orders if x not in known_orders]
-    # for order_ in result_list:
-    #     order_status = cli_.order_status(order_)
-    #     for node in nodes_:
-    #         if parse_tag(order_status["tag"]) == node.node_tag:
-    #             node.bid_id = order_
-    #             node.status = State.ORDER_PLACED
-
-
-def init_nodes_state(cli_, nodes_num_, config, counter_party):
+def init_nodes_state(cli_, nodes_num_, counter_party):
     nodes_ = []
     # get deals
     deals_ = cli_.deal_list(nodes_num_)
@@ -176,7 +78,7 @@ def init_nodes_state(cli_, nodes_num_, config, counter_party):
                 task_id = list(deal_status["running"].keys())[0]
                 status = State.TASK_RUNNING
             bid_id_ = deal_status["bid"]["id"]
-            node_ = Node(status, cli_, node_num, config["tag"], d["id"], task_id, bid_id_, config, counter_party)
+            node_ = Node(status, cli_, node_num, d["id"], task_id, bid_id_, counter_party)
             logger.info("Found deal, id " + d["id"] + " (Node " + node_num + ")")
             nodes_.append(node_)
 
@@ -187,32 +89,50 @@ def init_nodes_state(cli_, nodes_num_, config, counter_party):
             status = State.AWAITING_DEAL
             ntag = parse_tag(order_["tag"])
             node_num = ntag.split("_")[len(ntag.split("_")) - 1]
-            node_ = Node(status, cli_, node_num, config["tag"], "", "", order_["id"], config, counter_party)
+            node_ = Node(status, cli_, node_num, "", "", order_["id"], counter_party)
             logger.info("Found order, id " + order_["id"] + " (Node " + node_num + ")")
             nodes_.append(node_)
     if len(nodes_) == 0:
-        nodes_ = get_nodes(cli_, config, counter_party)
+        nodes_ = get_nodes(cli_, nodes_num_, counter_party)
+    elif len(nodes_) < nodes_num_:
+        live_nodes_nums = [n.node_num for n in nodes_]
+        for n_num in [n for n in range(1, nodes_num_ + 1) if str(n) not in live_nodes_nums]:
+            nodes_.append(Node.create_empty(cli_, n_num, counter_party))
     return nodes_
 
 
-def parse_tag(order_):
-    return base64.b64decode(order_).decode().strip("\0")
+def print_state(nodes_):
+    nodes_.sort(key=lambda x: int(x.node_num), reverse=False)
+    tabul_nodes = [[n.node_num, n.bid_id, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n in nodes_]
+    logger.info("Nodes:\n" +
+                tabulate(tabul_nodes,
+                         ["Node", "Order id", "Deal id", "Task id", "Task uptime", "Node status"],
+                         tablefmt="grid"))
+
+
+def watch(nodes_):
+    futures = []
+    for node in nodes_:
+        futures.append(node.watch_node())
+        time.sleep(1)
+    for future in futures:
+        future.result()
 
 
 def main():
     global scheduler
     cli_, config, counter_party = init()
     nodes_num_ = int(config["numberofnodes"])
-    nodes_ = init_nodes_state(cli_, nodes_num_, config, counter_party)
+    nodes_ = init_nodes_state(cli_, nodes_num_, counter_party)
     scheduler = BackgroundScheduler()
     print('Press Ctrl+{0} to interrupt script'.format('Break' if os.name == 'nt' else 'C'))
     try:
         scheduler.start()
-        scheduler.add_job(watch, 'interval', kwargs={"nodes_num_": nodes_num_, "nodes_": nodes_, "cli_": cli_},
-                          seconds=int(config["iteration_time"]), id='sonm_watch')
-        while len(scheduler.get_jobs()) > 0:
-            time.sleep(1)
+        scheduler.add_job(print_state, 'interval', kwargs={"nodes_": nodes_}, seconds=60, id='print_state')
+        watch(nodes_)
         scheduler.shutdown()
+        print_state(nodes_)
+        logger.info("Work completed")
     except (KeyboardInterrupt, SystemExit):
         pass
 

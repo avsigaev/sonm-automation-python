@@ -24,7 +24,7 @@ class Cli:
             attempt += 1
             time.sleep(sleep_time)
         if result.returncode != 0:
-            self.logger.error("Failed to execute command: " + ' '.join(command))
+            self.logger.error("Failed to execute command: {}".format(' '.join(command)))
             self.logger.error('\n'.join(errors_))
             return None
         if result.stdout.decode("utf-8") == "null":
@@ -63,5 +63,17 @@ class Cli:
     def task_start(self, deal_id, task_file):
         return self.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
 
-    def task_list(self, deal_id):
-        return self.exec(["task", "list", deal_id, "--timeout=2m"], retry=True)
+    def task_list(self, deal_id, attempts=10, sleep_time=20):
+        # TODO temp workaround!!!
+        attempt = 1
+        while True:
+            resp = self.exec(["task", "list", deal_id, "--timeout=2m"], retry=True)
+            if resp and "error" in resp.keys():
+                if attempt > attempts:
+                    self.logger.error("Received response: {}".format(resp))
+                    return resp
+                self.logger.error("Attempt {}, deal id {}  received response: {}".format(attempt, deal_id, resp))
+                attempt += 1
+                time.sleep(sleep_time)
+                continue
+            return resp
