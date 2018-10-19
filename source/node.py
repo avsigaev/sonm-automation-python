@@ -144,10 +144,14 @@ class Node:
         self.status = state_after
 
     def check_task_status(self):
-        if self.cli.deal_status(self.deal_id)["deal"]["status"] == 2:
+        deal_status = self.cli.deal_status(self.deal_id)
+        if deal_status and "deal" in deal_status and deal_status["deal"]["status"] == 2:
             self.logger.info("Deal {} was closed".format(self.deal_id))
             self.status = State.DEAL_DISAPPEARED
             return 1
+        elif deal_status and "error" in deal_status:
+            self.logger.error("Cannot retrieve status deal {}".format(self.deal_id))
+            return 60
         task_list = self.cli.task_list(self.deal_id)
         if task_list and len(task_list.keys()) > 0:
             if "error" in task_list.keys() or "message" in task_list.keys():
@@ -195,6 +199,7 @@ class Node:
                                  .format(self.task_id, self.deal_id, self.node_num))
                 self.status = State.TASK_FINISHED
                 return 1
+        return 60
 
     @threaded
     def watch_node(self, nodes_num):
@@ -222,7 +227,7 @@ class Node:
             elif self.status == State.TASK_FINISHED:
                 self.close_deal(State.WORK_COMPLETED)
                 sleep_time = 1
-            time.sleep(sleep_time)
+            time.sleep(sleep_time if sleep_time else 60)
 
     def save_task_logs(self, prefix):
         self.cli.save_task_logs(self.deal_id, self.task_id, "1000000",
