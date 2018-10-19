@@ -105,6 +105,10 @@ class Node:
         self.logger.info("Closing deal {}{}..."
                          .format(self.deal_id, (" with blacklisting worker " if blacklist else " ")))
         self.cli.deal_close(self.deal_id, blacklist)
+        self.deal_id = ""
+        self.bid_id = ""
+        self.task_uptime = 0
+        self.task_id = ""
         self.status = state_after
 
     @threaded

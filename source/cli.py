@@ -71,8 +71,8 @@ class Cli:
             if resp and "error" in resp.keys():
                 if attempt > attempts:
                     self.logger.error("Received response: {}".format(resp))
-                    break
-                self.logger.error("Attempt {},  received response: {}".format(attempt, resp))
+                    return resp
+                self.logger.error("Attempt {}, deal id {}  received response: {}".format(attempt, deal_id, resp))
                 attempt += 1
                 time.sleep(sleep_time)
                 continue
