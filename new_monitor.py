@@ -99,7 +99,8 @@ def init_nodes_state(cli_, sonm_node_, nodes_num_, counter_party):
                 task_id = list(deal_status["running"].keys())[0]
                 status = State.TASK_RUNNING
             bid_id_ = deal_status["bid"]["id"]
-            node_ = WorkNode(status, cli_, sonm_node_, node_num, d["id"], task_id, bid_id_, counter_party)
+            price = deal_status["bid"]["price"]
+            node_ = WorkNode(status, cli_, sonm_node_, node_num, d["id"], task_id, bid_id_, counter_party, price)
             logger.info("Found deal, id " + d["id"] + " (Node " + node_num + ")")
             nodes_.append(node_)
 
@@ -110,7 +111,8 @@ def init_nodes_state(cli_, sonm_node_, nodes_num_, counter_party):
             status = State.AWAITING_DEAL
             ntag = parse_tag(order_["tag"])
             node_num = ntag.split("_")[len(ntag.split("_")) - 1]
-            node_ = WorkNode(status, cli_, sonm_node_, node_num, "", "", order_["id"], counter_party)
+            price = order_["price"]
+            node_ = WorkNode(status, cli_, sonm_node_, node_num, "", "", order_["id"], counter_party, price)
             logger.info("Found order, id " + order_["id"] + " (Node " + node_num + ")")
             nodes_.append(node_)
     if len(nodes_) == 0:

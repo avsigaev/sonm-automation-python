@@ -25,7 +25,7 @@ class State(Enum):
 
 
 class WorkNode:
-    def __init__(self, status, cli_, sonm_node_, node_num, deal_id, task_id, bid_id, counterparty):
+    def __init__(self, status, cli_, sonm_node_, node_num, deal_id, task_id, bid_id, counterparty, price):
         self.logger = logging.getLogger("monitor")
         self.sonm_node = sonm_node_
         self.config = {}
@@ -39,6 +39,7 @@ class WorkNode:
         self.deal_id = deal_id
         self.task_id = task_id
         self.bid_id = bid_id
+        self.price = "{0:.4f} USD/h".format(self.convert_price(price))
         self.counterparty = counterparty
         self.task_uptime = 0
         self.logger.info("Creating task file for Node number {}".format(self.node_num))
@@ -46,7 +47,7 @@ class WorkNode:
 
     @classmethod
     def create_empty(cls, cli_, sonm_node_, node_num, counterparty):
-        return cls(State.START, cli_, sonm_node_, node_num, "", "", "", counterparty)
+        return cls(State.START, cli_, sonm_node_, node_num, "", "", "", counterparty, "")
 
     def reload_config(self):
         self.config = load_cfg()
@@ -59,12 +60,13 @@ class WorkNode:
         self.logger.info("Creating order file Node number {}".format(self.node_num))
         bid_ = template_bid(self.config, self.node_tag, self.counterparty)
         predict_price_resp = self.sonm_node.predictor.predict(bid_["resources"])
-        predicted_price = int(predict_price_resp["perSecond"]) / 1000000000000000000 * 3600
+        predicted_price = self.convert_price(predict_price_resp["perSecond"])
         if predicted_price > float(self.config["max_price"]):
-            final_price = "{0:.4f}USD/h".format(self.config["max_price"])
+            bid_["price"] = "{0:.4f}USD/h".format(self.config["max_price"])
+            self.price = "{0:.4f} USD/h".format(self.config["max_price"])
         else:
-            final_price = "{0:.4f}USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
-        bid_["price"] = final_price
+            bid_["price"] = "{0:.4f}USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
+            self.price = "{0:.4f} USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
         self.logger.info("Predicted price for Node {} is {}".format(self.node_num, final_price))
         self.dump_file(bid_, self.bid_file)
 
@@ -224,6 +226,10 @@ class WorkNode:
     def save_task_logs(self, prefix):
         self.cli.save_task_logs(self.deal_id, self.task_id, "1000000",
                                 "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
+
+    @staticmethod
+    def convert_price(price_):
+        return int(price_) / 1000000000000000000 * 3600
 
     @staticmethod
     def dump_file(data, filename):
