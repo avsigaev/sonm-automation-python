@@ -24,8 +24,10 @@ class State(Enum):
     WORK_COMPLETED = 12
 
 
-class Node:
-    def __init__(self, status, cli_, node_num, deal_id, task_id, bid_id, counterparty):
+class WorkNode:
+    def __init__(self, status, cli_, sonm_node_, node_num, deal_id, task_id, bid_id, counterparty):
+        self.logger = logging.getLogger("monitor")
+        self.sonm_node = sonm_node_
         self.config = {}
         self.reload_config()
         self.status = status
@@ -38,16 +40,13 @@ class Node:
         self.task_id = task_id
         self.bid_id = bid_id
         self.counterparty = counterparty
-        self.logger = logging.getLogger("monitor")
         self.task_uptime = 0
         self.logger.info("Creating task file for Node number {}".format(self.node_num))
-        self.create_bid_yaml()
-        self.logger.info("Creating order file Node number {}".format(self.node_num))
         self.create_task_yaml()
 
     @classmethod
-    def create_empty(cls, cli_, node_num, counterparty):
-        return cls(State.START, cli_, node_num, "", "", "", counterparty)
+    def create_empty(cls, cli_, sonm_node_, node_num, counterparty):
+        return cls(State.START, cli_, sonm_node_, node_num, "", "", "", counterparty)
 
     def reload_config(self):
         self.config = load_cfg()
@@ -57,12 +56,20 @@ class Node:
         self.dump_file(task_, self.task_file)
 
     def create_bid_yaml(self):
+        self.logger.info("Creating order file Node number {}".format(self.node_num))
         bid_ = template_bid(self.config, self.node_tag, self.counterparty)
+        predict_price_resp = self.sonm_node.predictor.predict(bid_["resources"])
+        predicted_price = int(predict_price_resp["perSecond"]) / 1000000000000000000 * 3600
+        if predicted_price > float(self.config["max_price"]):
+            final_price = "{0:.4f}USD/h".format(self.config["max_price"])
+        else:
+            final_price = "{0:.4f}USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
+        bid_["price"] = final_price
+        self.logger.info("Predicted price for Node {} is {}".format(self.node_num, final_price))
         self.dump_file(bid_, self.bid_file)
 
     def create_order(self):
         self.reload_config()
-        self.create_task_yaml()
         self.create_bid_yaml()
         self.status = State.PLACING_ORDER
         self.logger.info("Create order for Node {}".format(self.node_num))
@@ -110,7 +117,11 @@ class Node:
             self.save_task_logs("out/success_")
         self.logger.info("Closing deal {}{}..."
                          .format(self.deal_id, (" with blacklisting worker " if blacklist else " ")))
-        self.cli.deal_close(self.deal_id, blacklist)
+        deal_status = self.cli.deal_status(self.deal_id)
+        if deal_status and "deal" in deal_status and deal_status["deal"]["status"] == 2:
+            self.logger.error("Deal {} (Node {}) already closed".format(self.deal_id, self.node_num))
+        else:
+            self.cli.deal_close(self.deal_id, blacklist)
         self.deal_id = ""
         self.bid_id = ""
         self.task_uptime = 0

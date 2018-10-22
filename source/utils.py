@@ -9,6 +9,15 @@ from pathlib2 import Path
 from ruamel.yaml import YAML
 
 
+class Nodes(object):
+    nodes_ = []
+
+    @staticmethod
+    def get_nodes():
+        Nodes.nodes_.sort(key=lambda x: int(x.node_num), reverse=False)
+        return Nodes.nodes_
+
+
 def parse_tag(order_):
     return base64.b64decode(order_).decode().strip("\0")
 

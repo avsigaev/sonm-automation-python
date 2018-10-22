@@ -18,6 +18,22 @@ ets: 180
 template_file: "claymore.yaml"
 #template_file: "task_template.yaml"
 
+price_coefficient: 30
+max_price: "0.5"
+
+node_address: 'http://127.0.0.1:15031'
+ethereum:
+  key_path: "/Users/abefimov/autobot-keystore"
+  password: "11111111"
+
+#tasks:
+#- template_file: "claymore.yaml"
+#  numberofnodes: 2
+#  tag: "TEST"
+#- template_file: "claymore.yaml"
+#  numberofnodes: 2
+#  tag: "TEST2"
+
 # optional, sets counterparty for orders to take, must be HEX(40) string. Will be removed automatically in case of error/not set
 counterparty: ""
 # Identity level of the counterparty. Can be "anonymous", "registered", "identified" and "professional".
