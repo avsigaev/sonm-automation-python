@@ -2,6 +2,8 @@ import base64
 import errno
 import os
 import platform
+from concurrent.futures import Future
+from threading import Thread
 
 from pathlib2 import Path
 from ruamel.yaml import YAML
@@ -32,3 +34,20 @@ def set_sonmcli():
         return "sonmcli_darwin_x86_64"
     else:
         return "sonmcli"
+
+
+def call_with_future(fn, future, args, kwargs):
+    try:
+        result = fn(*args, **kwargs)
+        future.set_result(result)
+    except Exception as exc:
+        future.set_exception(exc)
+
+
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        future = Future()
+        Thread(target=call_with_future, args=(fn, future, args, kwargs)).start()
+        return future
+
+    return wrapper

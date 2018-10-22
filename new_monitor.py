@@ -4,6 +4,7 @@ import os
 import re
 import time
 from logging.config import dictConfig
+from threading import Thread
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from tabulate import tabulate
@@ -11,6 +12,45 @@ from tabulate import tabulate
 from source.cli import Cli
 from source.node import Node, State
 from source.utils import parse_tag, create_dir, load_cfg, set_sonmcli
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class HTTPServerRequestHandler(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        tabul_nodes = [[n.node_num, n.bid_id, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n in nodes_]
+
+        html = """<html><table border="1"><tr>
+        <th>Node</th><th>Order id</th><th>Deal id</th><th>Task id</th><th>Task uptime</th><th>Node status</th>
+        </tr>"""
+        for row in tabul_nodes:
+            html += "<tr>"
+            for cell in row:
+                html += "<td>{}</td>".format(cell)
+            html += "</tr>"
+        html += "</table></html>"
+        self.wfile.write(bytes(html, "utf8"))
+        return
+
+    def log_message(self, format, *args):
+        http_logger.info("%s - - [%s] %s\n" %
+                         (self.address_string(),
+                          self.log_date_time_string(),
+                          format % args))
+
+
+def run_http_server(config):
+    if "http_server" in config and "run" in config["http_server"]:
+        if config["http_server"]["run"]:
+            logger.info('starting server...')
+            server_address = ('0.0.0.0', config["http_server"]["port"])
+            httpd = HTTPServer(server_address, HTTPServerRequestHandler)
+            logger.info('running server...')
+            Thread(target=httpd.serve_forever).start()
 
 
 def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
@@ -110,7 +150,7 @@ def print_state(nodes_):
                          tablefmt="grid"))
 
 
-def watch(nodes_):
+def watch():
     futures = []
     for node in nodes_:
         futures.append(node.watch_node())
@@ -120,7 +160,7 @@ def watch(nodes_):
 
 
 def main():
-    global scheduler
+    global scheduler, nodes_
     cli_, config, counter_party = init()
     nodes_num_ = int(config["numberofnodes"])
     nodes_ = init_nodes_state(cli_, nodes_num_, counter_party)
@@ -129,7 +169,8 @@ def main():
     try:
         scheduler.start()
         scheduler.add_job(print_state, 'interval', kwargs={"nodes_": nodes_}, seconds=60, id='print_state')
-        watch(nodes_)
+        run_http_server(config)
+        watch()
         scheduler.shutdown()
         print_state(nodes_)
         logger.info("Work completed")
@@ -139,6 +180,8 @@ def main():
 
 setup_logging()
 logging.getLogger('apscheduler').setLevel(logging.FATAL)
+logging.getLogger('HTTPServer').setLevel(logging.FATAL)
 logger = logging.getLogger('monitor')
+http_logger = logging.getLogger('monitor_http')
 if __name__ == "__main__":
     main()

@@ -1,12 +1,10 @@
 import logging
 import time
-from concurrent.futures import Future
 from enum import Enum
-from threading import Thread
 
 from ruamel import yaml
 
-from source.utils import parse_tag, load_cfg
+from source.utils import load_cfg, threaded
 from source.yaml_gen import template_bid, template_task
 
 
@@ -24,23 +22,6 @@ class State(Enum):
     TASK_BROKEN = 10
     TASK_FINISHED = 11
     WORK_COMPLETED = 12
-
-
-def call_with_future(fn, future, args, kwargs):
-    try:
-        result = fn(*args, **kwargs)
-        future.set_result(result)
-    except Exception as exc:
-        future.set_exception(exc)
-
-
-def threaded(fn):
-    def wrapper(*args, **kwargs):
-        future = Future()
-        Thread(target=call_with_future, args=(fn, future, args, kwargs)).start()
-        return future
-
-    return wrapper
 
 
 class Node:
@@ -141,6 +122,10 @@ class Node:
         if deal_status and "deal" in deal_status and deal_status["deal"]["status"] == 2:
             self.logger.info("Deal {} was closed".format(self.deal_id))
             self.status = State.DEAL_DISAPPEARED
+            self.deal_id = ""
+            self.bid_id = ""
+            self.task_uptime = 0
+            self.task_id = ""
             return 1
         elif deal_status and "error" in deal_status:
             self.logger.error("Cannot retrieve status deal {}".format(self.deal_id))
@@ -177,7 +162,7 @@ class Node:
                     self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) before ETS."
                                       " Closing deal and blacklisting counterparty worker's address..."
                                       .format(time_, self.deal_id, self.node_num))
-                    self.status = State.TASK_FAILED
+                    self.status = State.TASK_FAILED_TO_START
                     return 1
                 else:
                     self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) after ETS."
@@ -211,8 +196,11 @@ class Node:
                 sleep_time = 1
             elif self.status == State.TASK_RUNNING:
                 sleep_time = self.check_task_status()
-            elif self.status == State.TASK_FAILED or self.status == State.TASK_FAILED_TO_START:
+            elif self.status == State.TASK_FAILED_TO_START:
                 self.close_deal(State.CREATE_ORDER, blacklist=True)
+                sleep_time = 1
+            elif self.status == State.TASK_FAILED:
+                self.close_deal(State.CREATE_ORDER)
                 sleep_time = 1
             elif self.status == State.TASK_BROKEN:
                 self.close_deal(State.CREATE_ORDER)

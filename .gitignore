@@ -5,3 +5,4 @@ venv
 sonmcli_darwin_x86_64
 .DS_Store
 monitor.log
+http_monitor.log
