@@ -67,7 +67,7 @@ class WorkNode:
         else:
             bid_["price"] = "{0:.4f}USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
             self.price = "{0:.4f} USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
-        self.logger.info("Predicted price for Node {} is {}".format(self.node_num, final_price))
+        self.logger.info("Predicted price for Node {} is {}".format(self.node_num, bid_["price"]))
         self.dump_file(bid_, self.bid_file)
 
     def create_order(self):
@@ -87,7 +87,7 @@ class WorkNode:
             self.status = State.DEAL_OPENED
             self.logger.info("For order {} (Node {}) opened new deal {}"
                              .format(self.bid_id, self.node_num, self.deal_id))
-            return 1
+            return 15
         elif order_status and order_status["orderStatus"] == 1 and order_status["dealID"] == "0":
             self.logger.info("Order {} was cancelled (Node {}), create new order".format(self.bid_id, self.node_num))
             self.bid_id = ""

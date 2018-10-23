@@ -15,20 +15,14 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
             # set the right mime type
             if self.path.endswith(".css"):
                 # Open the static file requested and send it
-                f = Path("source" + self.path)
-                self.send_response(200)
-                self.send_header('Content-type', 'text/css')
-                self.end_headers()
-                self.wfile.write(f.read_bytes())
-                return
+                mime = 'text/css'
+                f = Path("resources" + self.path)
+                content = f.read_bytes()
             else:
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
-                self.end_headers()
+                mime = 'text/html'
                 tabul_nodes = [[n.node_num, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n
                                in
                                Nodes.get_nodes()]
-
                 html = """<html>
                        <head>
                        <link rel="stylesheet" type="text/css" href="css/sonm-auto.css">
@@ -43,8 +37,11 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
                         html += "<td>{}</td>".format(cell)
                     html += "</tr>"
                 html += "</table></html>"
-                self.wfile.write(bytes(html, "utf8"))
-                return
+                content = bytes(html, "utf8")
+            self.send_response(200)
+            self.send_header('Content-type', mime)
+            self.end_headers()
+            self.wfile.write(content)
         except IOError:
             self.send_error(404, 'File Not Found: %s' % self.path)
 
