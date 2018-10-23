@@ -86,7 +86,7 @@ class SonmApi:
 
     def deal_list(self, number_of_nodes):
         result = []
-        deal_list_ = self.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
+        deal_list_ = self.deal_list_rest(number_of_nodes)
         if deal_list_ and deal_list_['deals']:
             for d in [d_["deal"] for d_ in deal_list_['deals']]:
                 result.append({"id": d["id"]})
@@ -139,6 +139,13 @@ class SonmApi:
     @retry_on_status
     def predict_bid(self, bid_):
         return self.get_node().predictor.predict(bid_)
+
+    @retry_on_status
+    def deal_list_rest(self, number_of_nodes):
+        filters = {"status": 1,
+                   "consumerID": self.get_node().eth_addr,
+                   "limit": number_of_nodes}
+        return self.get_node().deal.list(filters)
 
     def task_list(self, deal_id, attempts=10, sleep_time=20):
         result = None
