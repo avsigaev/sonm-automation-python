@@ -1,9 +1,0 @@
-# Docker image settings.
-# Required.
-
-container:
-  tag: "{{ node_tag }}"
-  image: "clavichord/bmi_parser"
-  commit_on_stop: false
-  env:
-    ARGS: "--project test --testMode --verbose --node {{ node_tag }} --autoThreadCount"
