@@ -2,7 +2,7 @@
 
 import threading
 
-from source.cli import Cli
+from source.sonmapi import SonmApi
 from source.utils import set_sonmcli
 
 
@@ -31,7 +31,7 @@ def get_blacklist():
 
 def main():
     global SONM_CLI
-    SONM_CLI = Cli(set_sonmcli())
+    SONM_CLI = SonmApi.only_cli(set_sonmcli())
     blacklist = get_blacklist()
     for address in blacklist:
         threading.Thread(target=clear_blacklist, kwargs={'address': address}).start()

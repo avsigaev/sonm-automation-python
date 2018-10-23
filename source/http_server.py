@@ -26,7 +26,7 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
 
     def get_html(self):
         mime = 'text/html'
-        tabul_nodes = [[n.node_num, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n
+        tabul_nodes = [[n.node_tag, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n
                        in
                        Nodes.get_nodes()]
         html = """<html>

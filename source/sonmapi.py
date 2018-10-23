@@ -4,10 +4,37 @@ import subprocess
 import time
 
 
-class Cli:
-    def __init__(self, cli_):
-        self.cli = cli_
+def retry(fn, attempts=3, sleep_time=3):
+    def wrapper(*args, **kwargs):
+        attempt = 1
+        while True:
+            r = fn(*args, **kwargs)
+            if "status_code" in r and r["status_code"] == 200:
+                break
+            if not retry or attempt > attempts:
+                break
+            attempt += 1
+            time.sleep(sleep_time)
+        return r
+
+    return wrapper
+
+
+class SonmApi:
+    def __init__(self, cli, node):
+        self.cli = cli
+        self.node = node
         self.logger = logging.getLogger("monitor")
+
+    @classmethod
+    def only_cli(cls, cli):
+        return cls(cli, None)
+
+    def get_node(self):
+        if self.node:
+            return self.node
+        else:
+            raise Exception("Sonm node api not initialized")
 
     def exec(self, param, retry=False, attempts=3, sleep_time=1):
         command = [self.cli] + param
@@ -62,6 +89,10 @@ class Cli:
 
     def task_start(self, deal_id, task_file):
         return self.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
+
+    @retry
+    def predict_bid(self, bid_):
+        return self.get_node().predictor.predict(bid_)
 
     def task_list(self, deal_id, attempts=10, sleep_time=20):
         # TODO temp workaround!!!

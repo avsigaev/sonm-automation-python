@@ -8,13 +8,13 @@ formatters:
 handlers:
     console:
         class: logging.StreamHandler
-        level: INFO
+        level: DEBUG
         formatter: simple
         stream: ext://sys.stdout
 
     info_file_handler:
         class: logging.handlers.RotatingFileHandler
-        level: INFO
+        level: DEBUG
         formatter: simple
         filename: monitor.log
         maxBytes: 10485760 # 10MB
@@ -23,7 +23,7 @@ handlers:
 
     http_file_handler:
         class: logging.handlers.RotatingFileHandler
-        level: INFO
+        level: DEBUG
         formatter: simple
         filename: http_monitor.log
         maxBytes: 10485760 # 10MB
@@ -32,10 +32,10 @@ handlers:
 
 loggers:
     monitor:
-        level: INFO
+        level: DEBUG
         handlers: [console, info_file_handler]
         propagate: no
     monitor_http:
-        level: INFO
+        level: DEBUG
         handlers: [http_file_handler]
         propagate: no
