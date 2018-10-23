@@ -14,16 +14,22 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
             # Check the file extension required and
             # set the right mime type
             if self.path.endswith(".css"):
-                # Open the static file requested and send it
-                mime = 'text/css'
-                f = Path("resources" + self.path)
-                content = f.read_bytes()
+                content, mime = self.get_css()
             else:
-                mime = 'text/html'
-                tabul_nodes = [[n.node_num, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n
-                               in
-                               Nodes.get_nodes()]
-                html = """<html>
+                content, mime = self.get_html()
+            self.send_response(200)
+            self.send_header('Content-type', mime)
+            self.end_headers()
+            self.wfile.write(content)
+        except IOError:
+            self.send_error(404, 'File Not Found: %s' % self.path)
+
+    def get_html(self):
+        mime = 'text/html'
+        tabul_nodes = [[n.node_num, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n
+                       in
+                       Nodes.get_nodes()]
+        html = """<html>
                        <head>
                        <link rel="stylesheet" type="text/css" href="css/sonm-auto.css">
                        </head>
@@ -31,19 +37,21 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
                        <th>Node</th><th>Order id</th><th>Order Price</th>
                        <th>Deal id</th><th>Task id</th><th>Task uptime</th><th>Node status</th>
                        </tr>"""
-                for row in tabul_nodes:
-                    html += "<tr>"
-                    for cell in row:
-                        html += "<td>{}</td>".format(cell)
-                    html += "</tr>"
-                html += "</table></html>"
-                content = bytes(html, "utf8")
-            self.send_response(200)
-            self.send_header('Content-type', mime)
-            self.end_headers()
-            self.wfile.write(content)
-        except IOError:
-            self.send_error(404, 'File Not Found: %s' % self.path)
+        for row in tabul_nodes:
+            html += "<tr>"
+            for cell in row:
+                html += "<td>{}</td>".format(cell)
+            html += "</tr>"
+        html += "</table></html>"
+        content = bytes(html, "utf8")
+        return content, mime
+
+    def get_css(self):
+        # Open the static file requested and send it
+        mime = 'text/css'
+        f = Path("resources" + self.path)
+        content = f.read_bytes()
+        return content, mime
 
     def log_message(self, format, *args):
         self.http_logger.info("%s - - [%s] %s\n" %
