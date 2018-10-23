@@ -32,7 +32,7 @@ def run_http_server(config):
             server_address = ('0.0.0.0', config["http_server"]["port"])
             httpd = HTTPServer(server_address, HTTPServerRequestHandler)
             logger.info('running server...')
-            Thread(target=httpd.serve_forever).start()
+            httpd.serve_forever()
 
 
 def watch():
@@ -51,7 +51,7 @@ def main():
     try:
         scheduler.start()
         scheduler.add_job(print_state, 'interval', seconds=60, id='print_state')
-        run_http_server(Config.base_config)
+        scheduler.add_job(run_http_server, kwargs={"config": Config.base_config}, id='http_server')
         watch()
         scheduler.shutdown()
         print_state()
