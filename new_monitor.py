@@ -36,14 +36,15 @@ def run_http_server(config):
 
 
 def watch():
-    executor = ThreadPoolExecutor(max_workers=len(Nodes.get_nodes()))
+    futures = []
     for node in Nodes.get_nodes():
-        executor.submit(node.watch_node)
+        futures.append(node.watch_node())
         time.sleep(1)
+    for future in futures:
+        future.result()
 
 
 def main():
-    global schedule
     sonm_api = init()
     init_nodes_state(sonm_api)
     scheduler = BackgroundScheduler()

@@ -4,7 +4,7 @@ import subprocess
 import time
 
 
-def retry(fn, attempts=3, sleep_time=3):
+def retry_on_status(fn, retry=True, attempts=3, sleep_time=3):
     def wrapper(*args, **kwargs):
         attempt = 1
         while True:
@@ -64,47 +64,96 @@ class SonmApi:
             subprocess.call(command, stdout=outfile)
 
     def order_create(self, bid_file):
-        return self.exec(["order", "create", bid_file])
+        result = None
+        create_order = self.exec(["order", "create", bid_file])
+        if create_order:
+            result = {"id": create_order["id"]}
+        return result
 
     def order_list(self, number_of_nodes):
-        return self.exec(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
+        order_list_ = self.exec(["order", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
+        orders_ = None
+        if order_list_ and order_list_["orders"] is not None:
+            orders_ = [{"id": order["id"],
+                        "tag": order["tag"],
+                        "price": order["price"]}
+                       for order in list(order_list_["orders"])]
+        return {"orders": orders_}
 
     def order_status(self, order_id):
-        return self.exec(["order", "status", str(order_id)], retry=True)
+        order_status_ = self.exec(["order", "status", str(order_id)], retry=True)
+        return {"orderStatus": order_status_["orderStatus"], "dealID": order_status_["dealID"]}
 
     def deal_list(self, number_of_nodes):
-        return self.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
+        result = []
+        deal_list_ = self.exec(["deal", "list", "--timeout=2m", "--limit", str(number_of_nodes)], retry=True)
+        if deal_list_ and deal_list_['deals']:
+            for d in [d_["deal"] for d_ in deal_list_['deals']]:
+                result.append({"id": d["id"]})
+        return result
 
     def deal_status(self, deal_id):
-        return self.exec(["deal", "status", deal_id, "--expand"], retry=True)
+        result = None
+        deal_status_ = self.exec(["deal", "status", deal_id, "--expand"], retry=True)
+        if deal_status_ and "deal" in deal_status_:
+            result = {"status": deal_status_["deal"]["status"],
+                      "bid_tag": deal_status_["bid"]["tag"],
+                      "bid_id": deal_status_["bid"]["id"],
+                      "has_running": False,
+                      "running": [],
+                      "worker_offline": True,
+                      "bid_price": deal_status_["bid"]["price"]}
+            if "running" in deal_status_:
+                result["has_running"] = (len(deal_status_["running"].keys()) > 0)
+                result["running"] = list(deal_status_["running"])
+            if "resources" in deal_status_:
+                result["worker_offline"] = False
+
+        return result
 
     def deal_close(self, deal_id, bl_worker=False):
         close_d_command = ["deal", "close", deal_id]
         if bl_worker:
             close_d_command += ["--blacklist", "worker"]
-        return self.exec(close_d_command, retry=True)
+        result = None
+        close_deal = self.exec(close_d_command, retry=True)
+        if close_deal:
+            result = {}
+        return result
 
     def task_status(self, deal_id, task_id):
-        return self.exec(["task", "status", deal_id, task_id, "--timeout=2m"], retry=True)
+        result = None
+        task_status_ = self.exec(["task", "status", deal_id, task_id, "--timeout=2m"], retry=True)
+        if task_status_ and "status" in task_status_:
+            result = {"status": task_status_["status"],
+                      "uptime": str(int(float(int(task_status_["uptime"]) / 1000000000)))}
+        return result
 
     def task_start(self, deal_id, task_file):
-        return self.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
+        result = None
+        task_start = self.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
+        if task_start:
+            result = {"id": task_start["id"]}
+        return result
 
-    @retry
+    @retry_on_status
     def predict_bid(self, bid_):
         return self.get_node().predictor.predict(bid_)
 
     def task_list(self, deal_id, attempts=10, sleep_time=20):
-        # TODO temp workaround!!!
+        result = None
         attempt = 1
         while True:
             resp = self.exec(["task", "list", deal_id, "--timeout=2m"], retry=True)
             if resp and "error" in resp.keys():
                 if attempt > attempts:
                     self.logger.error("Received response: {}".format(resp))
-                    return resp
+                    break
                 self.logger.error("Attempt {}, deal id {}  received response: {}".format(attempt, deal_id, resp))
                 attempt += 1
                 time.sleep(sleep_time)
                 continue
-            return resp
+            break
+        if resp and len(resp.keys()) > 0:
+            result = resp
+        return result

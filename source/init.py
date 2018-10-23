@@ -25,28 +25,27 @@ def init_nodes_state(sonm_api):
     nodes_num_ = len(Config.node_configs)
     # get deals
     deals_ = sonm_api.deal_list(nodes_num_)
-    if deals_ and deals_['deals']:
-        for d in [d_["deal"] for d_ in deals_['deals']]:
-            status = State.DEAL_OPENED
-            deal_status = sonm_api.deal_status(d["id"])
-            ntag = parse_tag(deal_status["bid"]["tag"])
-            task_id = ""
-            if "resources" not in deal_status:
-                logger.info(
-                    "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
-                status = State.TASK_FAILED
-            if "running" in deal_status and len(list(deal_status["running"].keys())) > 0:
-                task_id = list(deal_status["running"].keys())[0]
-                status = State.TASK_RUNNING
-            bid_id_ = deal_status["bid"]["id"]
-            price = deal_status["bid"]["price"]
-            node_ = WorkNode(status, sonm_api, ntag, d["id"], task_id, bid_id_, price)
-            logger.info("Found deal, id {} (Node {})".format(d["id"], ntag))
-            nodes_.append(node_)
+    for deal in deals_:
+        status = State.DEAL_OPENED
+        deal_status = sonm_api.deal_status(deal["id"])
+        ntag = parse_tag(deal_status["bid_tag"])
+        task_id = ""
+        if deal_status["worker_offline"]:
+            logger.info(
+                "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
+            status = State.TASK_FAILED
+        if deal_status["has_running"]:
+            task_id = deal_status["running"][0]
+            status = State.TASK_RUNNING
+        bid_id_ = deal_status["bid_id"]
+        price = deal_status["bid_price"]
+        node_ = WorkNode(status, sonm_api, ntag, deal["id"], task_id, bid_id_, price)
+        logger.info("Found deal, id {} (Node {})".format(deal["id"], ntag))
+        nodes_.append(node_)
 
     # get orders
     orders_ = sonm_api.order_list(nodes_num_)
-    if orders_ and orders_["orders"] is not None:
+    if orders_ and orders_["orders"]:
         for order_ in list(orders_["orders"]):
             status = State.AWAITING_DEAL
             ntag = parse_tag(order_["tag"])
