@@ -36,12 +36,10 @@ def run_http_server(config):
 
 
 def watch():
-    futures = []
+    executor = ThreadPoolExecutor(max_workers=len(Nodes.get_nodes()))
     for node in Nodes.get_nodes():
-        futures.append(node.watch_node())
+        executor.submit(node.watch_node)
         time.sleep(1)
-    for future in futures:
-        future.result()
 
 
 def main():
@@ -49,7 +47,6 @@ def main():
     sonm_api = init()
     init_nodes_state(sonm_api)
     scheduler = BackgroundScheduler()
-    print('Press Ctrl+{0} to interrupt script'.format('Break' if os.name == 'nt' else 'C'))
     try:
         scheduler.start()
         scheduler.add_job(print_state, 'interval', seconds=60, id='print_state')
@@ -68,4 +65,5 @@ logging.getLogger('HTTPServer').setLevel(logging.FATAL)
 logger = logging.getLogger('monitor')
 
 if __name__ == "__main__":
+    print('Press Ctrl+{0} to interrupt script'.format('Break' if os.name == 'nt' else 'C'))
     main()

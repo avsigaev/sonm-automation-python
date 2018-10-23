@@ -219,7 +219,7 @@ class WorkNode:
                     sleep_time = 1
                 time.sleep(sleep_time if sleep_time else 60)
         except Exception as exc:
-            self.logger.exception("Node {} failed".format(self.node_tag), exc)
+            self.logger.exception("Node {} failed with exception".format(self.node_tag), exc)
 
     def save_task_logs(self, prefix):
         self.sonm_api.save_task_logs(self.deal_id, self.task_id, "1000000",
