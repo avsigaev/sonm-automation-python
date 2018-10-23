@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-import concurrent
 import logging
 import os
 import time
 from http.server import HTTPServer
 from logging.config import dictConfig
-from threading import Thread
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from concurrent.futures import ThreadPoolExecutor
 from source.http_server import HTTPServerRequestHandler
 from source.utils import Nodes, Config, print_state
 from source.init import init_nodes_state, init

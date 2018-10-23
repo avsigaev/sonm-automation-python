@@ -29,19 +29,21 @@ def init_nodes_state(sonm_api):
         status = State.DEAL_OPENED
         deal_status = sonm_api.deal_status(deal["id"])
         ntag = parse_tag(deal_status["bid_tag"])
-        task_id = ""
-        if deal_status["worker_offline"]:
-            logger.info(
-                "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
-            status = State.TASK_FAILED
-        if deal_status["has_running"]:
-            task_id = deal_status["running"][0]
-            status = State.TASK_RUNNING
-        bid_id_ = deal_status["bid_id"]
-        price = deal_status["bid_price"]
-        node_ = WorkNode(status, sonm_api, ntag, deal["id"], task_id, bid_id_, price)
-        logger.info("Found deal, id {} (Node {})".format(deal["id"], ntag))
-        nodes_.append(node_)
+        for node_tag, node_config in Config.node_configs.items():
+            if node_tag == ntag:
+                task_id = ""
+                if deal_status["worker_offline"]:
+                    logger.info(
+                        "Seems like worker is offline: no respond for the resources and tasks request. Closing deal")
+                    status = State.TASK_FAILED
+                if deal_status["has_running"]:
+                    task_id = deal_status["running"][0]
+                    status = State.TASK_RUNNING
+                bid_id_ = deal_status["bid_id"]
+                price = deal_status["bid_price"]
+                node_ = WorkNode(status, sonm_api, ntag, deal["id"], task_id, bid_id_, price)
+                logger.info("Found deal, id {} (Node {})".format(deal["id"], ntag))
+                nodes_.append(node_)
 
     # get orders
     orders_ = sonm_api.order_list(nodes_num_)
@@ -49,10 +51,12 @@ def init_nodes_state(sonm_api):
         for order_ in list(orders_["orders"]):
             status = State.AWAITING_DEAL
             ntag = parse_tag(order_["tag"])
-            price = order_["price"]
-            node_ = WorkNode(status, sonm_api, ntag, "", "", order_["id"], price)
-            logger.info("Found order, id {} (Node {})".format(order_["id"], ntag))
-            nodes_.append(node_)
+            for node_tag, node_config in Config.node_configs.items():
+                if node_tag == ntag:
+                    price = order_["price"]
+                    node_ = WorkNode(status, sonm_api, ntag, "", "", order_["id"], price)
+                    logger.info("Found order, id {} (Node {})".format(order_["id"], ntag))
+                    nodes_.append(node_)
     get_missed_nodes(sonm_api, nodes_)
     Nodes.nodes_ = nodes_
 
