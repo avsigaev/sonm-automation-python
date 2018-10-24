@@ -1,22 +1,24 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.7
 import logging
 import os
 import time
 from http.server import HTTPServer
 from logging.config import dictConfig
+from os.path import join
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from source.http_server import HTTPServerRequestHandler
-from source.utils import Nodes, Config, print_state
+from source.utils import Nodes, Config, print_state, create_dir
 from source.init import init_nodes_state, init
 
 
-def setup_logging(default_path='logging.yaml', default_level=logging.INFO):
+def setup_logging(default_config='logging.yaml', default_level=logging.INFO):
     """Setup logging configuration
 
     """
-    if os.path.exists(default_path):
-        config = Config.load_cfg(default_path)
+    create_dir("out/logs")
+    if os.path.exists(join(Config.config_folder, default_config)):
+        config = Config.load_cfg(default_config)
         dictConfig(config)
     else:
         logging.basicConfig(level=default_level)

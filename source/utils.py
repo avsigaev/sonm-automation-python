@@ -6,6 +6,8 @@ import os
 import platform
 import re
 from concurrent.futures import Future
+from enum import Enum
+from os.path import join
 from threading import Thread
 
 import ruamel.yaml
@@ -16,6 +18,23 @@ from ruamel.yaml import YAML
 from tabulate import tabulate
 
 logger = logging.getLogger("monitor")
+
+
+class Identity(Enum):
+    unknown = 0
+    anonymous = 1
+    registered = 2
+    identified = 3
+    professional = 4
+
+
+class TaskStatus(Enum):
+    unknown = 0
+    spooling = 1
+    spawning = 2
+    running = 3
+    finished = 4
+    broken = 5
 
 
 class Nodes(object):
@@ -30,6 +49,7 @@ class Nodes(object):
 class Config(object):
     base_config = {}
     node_configs = {}
+    config_folder = "conf/"
 
     @staticmethod
     def get_node_config(node_tag):
@@ -62,13 +82,14 @@ class Config(object):
                 Config.node_configs[node_tag] = task_config
 
     @staticmethod
-    def load_cfg(path='config.yaml'):
+    def load_cfg(filename='config.yaml', folder=config_folder):
+        path = join(folder, filename)
         if os.path.exists(path):
-            path = Path(path)
+            p = Path(path)
             yaml_ = YAML(typ='safe')
-            return yaml_.load(path)
+            return yaml_.load(p)
         else:
-            raise Exception("File {} not found".format(path))
+            raise Exception("File {} not found".format(filename))
 
 
 def atoi(text):
@@ -93,7 +114,14 @@ def create_dir(dir_):
 
 
 def convert_price(price_):
-    return int(price_) / 1000000000000000000 * 3600
+    return int(price_) / 1e18 * 3600
+
+
+def parse_price(price_: str):
+    if price_.endswith("USD/h") or price_.endswith("USD/s"):
+        return int(float(price_[:-5]) * 1e18 / 3600)
+    else:
+        raise Exception("Cannot parse price {}".format(price_))
 
 
 def set_sonmcli():

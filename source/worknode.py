@@ -1,10 +1,11 @@
 import logging
 import time
 from enum import Enum
+from os.path import join
 
 from ruamel import yaml
 
-from source.utils import threaded, Config, template_bid, template_task, convert_price
+from source.utils import threaded, Config, template_bid, template_task, convert_price, TaskStatus
 
 
 class State(Enum):
@@ -32,6 +33,8 @@ class WorkNode:
         self.sonm_api = sonm_api
         self.bid_file = "out/orders/{}.yaml".format(self.node_tag)
         self.task_file = "out/tasks/{}.yaml".format(self.node_tag)
+        self.bid_ = {}
+        self.task_ = {}
         self.deal_id = deal_id
         self.task_id = task_id
         self.bid_id = bid_id
@@ -49,28 +52,38 @@ class WorkNode:
 
     def create_task_yaml(self):
         self.logger.info("Creating task file for Node {}".format(self.node_tag))
-        task_ = template_task(self.config["template_file"], self.node_tag)
-        self.dump_file(task_, self.task_file)
+        file_ = join(Config.config_folder, self.config["template_file"])
+        self.task_ = template_task(file_, self.node_tag)
+        self.dump_file(self.task_, self.task_file)
 
     def create_bid_yaml(self):
         self.logger.info("Creating order file for Node {}".format(self.node_tag))
-        bid_ = template_bid(self.config, self.node_tag, self.config["counterparty"])
-        predicted_price = convert_price(self.sonm_api.predict_bid(bid_["resources"])["perSecond"])
-        if predicted_price > float(self.config["max_price"]):
-            bid_["price"] = "{0:.4f}USD/h".format(float(self.config["max_price"]))
-            self.price = "{0:.4f} USD/h".format(float(self.config["max_price"]))
-        else:
-            bid_["price"] = "{0:.4f}USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
-            self.price = "{0:.4f} USD/h".format(predicted_price * (1 + int(self.config["price_coefficient"]) / 100))
-        self.logger.info("Predicted price for Node {} is {}".format(self.node_tag, bid_["price"]))
-        self.dump_file(bid_, self.bid_file)
+        self.bid_ = template_bid(self.config, self.node_tag, self.config["counterparty"])
+
+        price_, predicted_ = self.get_price(self.bid_)
+        self.price = self.format_price(price_, readable=True)
+        self.bid_["price"] = self.format_price(price_)
+
+        self.logger.info("Predicted price for Node {} is {:.4f} USD/h, order price is {}"
+                         .format(self.node_tag, predicted_, self.price))
+        self.dump_file(self.bid_, self.bid_file)
+
+    def get_price(self, bid_):
+        predicted_price = self.sonm_api.predict_bid(bid_["resources"])
+        result_price = self.config["max_price"]
+        price_ = 0
+        if predicted_price:
+            price_ = predicted_price["perHourUSD"] * (1 + int(self.config["price_coefficient"]) / 100)
+            if price_ < float(self.config["max_price"]):
+                result_price = price_
+        return result_price, price_
 
     def create_order(self):
         self.reload_config()
         self.create_bid_yaml()
         self.status = State.PLACING_ORDER
         self.logger.info("Create order for Node {}".format(self.node_tag))
-        create_order = self.sonm_api.order_create(self.bid_file)
+        create_order = self.sonm_api.order_create(self.bid_)
         if not create_order:
             raise Exception("Cannot create order. Check sonm-node status or your balance")
         self.bid_id = create_order["id"]
@@ -150,17 +163,17 @@ class WorkNode:
             self.status = State.TASK_FAILED
             return 1
         time_ = task_status["uptime"]
-        if task_status["status"] == "RUNNING":
+        if task_status["status"] == TaskStatus.running.value:
             self.logger.info("Task {} on deal {} (Node {}) is running. Uptime is {} seconds"
                              .format(self.task_id, self.deal_id, self.node_tag, time_))
             self.task_uptime = time_
             return 60
-        if task_status["status"] == "SPOOLING":
+        if task_status["status"] == TaskStatus.spooling.value:
             self.logger.info("Task {} on deal {} (Node {}) is uploading..."
                              .format(self.task_id, self.deal_id, self.node_tag))
             self.status = State.STARTING_TASK
             return 60
-        if task_status["status"] == "BROKEN":
+        if task_status["status"] == TaskStatus.broken.value:
             if int(time_) < self.config["ets"]:
                 self.logger.error("Task has failed ({} seconds) on deal {} (Node {}) before ETS."
                                   " Closing deal and blacklisting counterparty worker's address..."
@@ -173,7 +186,7 @@ class WorkNode:
                                   .format(time_, self.deal_id, self.node_tag))
                 self.status = State.TASK_BROKEN
                 return 1
-        if task_status["status"] == "FINISHED":
+        if task_status["status"] == TaskStatus.finished.value:
             self.logger.info("Task {}  on deal {} (Node {} ) is finished. Uptime is {}  seconds"
                              .format(self.task_id, self.deal_id, self.node_tag, time_))
             self.logger.info("Task {}  on deal {} (Node {} ) success. Fetching log, shutting down node..."
@@ -217,8 +230,12 @@ class WorkNode:
             self.logger.exception("Node {} failed with exception".format(self.node_tag), exc)
 
     def save_task_logs(self, prefix):
-        self.sonm_api.save_task_logs(self.deal_id, self.task_id, "1000000",
-                                     "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
+        self.sonm_api.task_logs(self.deal_id, self.task_id, "1000000",
+                                "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
+
+    @staticmethod
+    def format_price(price_, readable=False):
+        return "{0:.4f}{1}USD/h".format(float(price_), " " if readable else "")
 
     @staticmethod
     def dump_file(data, filename):
