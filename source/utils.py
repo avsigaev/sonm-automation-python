@@ -53,6 +53,10 @@ class Config(object):
     config_folder = "conf/"
 
     @staticmethod
+    def check_config():
+        logger.info("Checking config")
+
+    @staticmethod
     def get_node_config(node_tag):
         return Config.node_configs.get(node_tag)
 

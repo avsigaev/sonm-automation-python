@@ -5,7 +5,7 @@ from os.path import join
 
 import yaml
 
-from source.utils import threaded, Config, template_bid, template_task, convert_price, TaskStatus, dump_file
+from source.utils import Config, template_bid, template_task, convert_price, TaskStatus, dump_file
 
 
 class State(Enum):
@@ -26,6 +26,7 @@ class State(Enum):
 
 class WorkNode:
     def __init__(self, status, sonm_api, node_tag, deal_id, task_id, bid_id, price):
+        self.KEEP_WORK = True
         self.logger = logging.getLogger("monitor")
         self.node_tag = node_tag
         self.config = Config.get_node_config(self.node_tag)
@@ -196,11 +197,10 @@ class WorkNode:
             return 1
         return 60
 
-    @threaded
     def watch_node(self):
         try:
             sleep_time = 1
-            while self.status != State.WORK_COMPLETED:
+            while self.KEEP_WORK and self.status != State.WORK_COMPLETED:
                 if self.status == State.START or self.status == State.CREATE_ORDER:
                     self.create_order()
                     sleep_time = 60
@@ -226,9 +226,21 @@ class WorkNode:
                 elif self.status == State.TASK_FINISHED:
                     self.close_deal(State.WORK_COMPLETED)
                     sleep_time = 1
-                time.sleep(sleep_time if sleep_time else 60)
+                self.wait_sleep(sleep_time)
+            self.logger.info("Node {} stopped".format(self.node_tag))
         except Exception as exc:
             self.logger.exception("Node {} failed with exception".format(self.node_tag), exc)
+
+    def wait_sleep(self, sleep_time):
+        for n in range(0, sleep_time if sleep_time else 60):
+            if self.KEEP_WORK:
+                time.sleep(1)
+            else:
+                return
+
+    def stop_work(self):
+        self.KEEP_WORK = False
+        self.logger.info("Stopping Node {} ...".format(self.node_tag))
 
     def save_task_logs(self, prefix):
         self.sonm_api.task_logs(self.deal_id, self.task_id, "1000000",

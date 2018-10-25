@@ -3,10 +3,8 @@ from genericpath import isfile
 from os import listdir
 from os.path import join
 
-from sonm_pynode.main import Node
-
 from source.sonmapi import SonmApi
-from source.utils import Nodes, create_dir, set_sonmcli, Config
+from source.utils import Nodes, create_dir, Config
 from source.worknode import WorkNode, State
 
 logger = logging.getLogger("monitor")

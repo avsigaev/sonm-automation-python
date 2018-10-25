@@ -1,9 +1,17 @@
 import logging
-from http.server import BaseHTTPRequestHandler
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from pathlib2 import Path
 
-from source.utils import Nodes
+from source.utils import Nodes, Config
+
+logger = logging.getLogger("monitor")
+
+
+class SonmHttpServer:
+    KEEP_RUNNING = True
 
 
 class HTTPServerRequestHandler(BaseHTTPRequestHandler):
@@ -58,3 +66,21 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
                               (self.address_string(),
                                self.log_date_time_string(),
                                format % args))
+
+
+def run_http_server():
+    if "http_server" in Config.base_config and "run" in Config.base_config["http_server"]:
+        if not Config.base_config["http_server"]["run"]:
+            return
+
+        logger.info('Starting HTTP server...')
+        server = HTTPServer(('0.0.0.0', Config.base_config["http_server"]["port"]), HTTPServerRequestHandler)
+        logger.info("Agent started on port: {}".format(Config.base_config["http_server"]["port"]))
+
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+
+        while SonmHttpServer.KEEP_RUNNING:
+            time.sleep(1)
+        logger.info("Http server stopped")
