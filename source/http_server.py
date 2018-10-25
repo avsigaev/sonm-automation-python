@@ -5,7 +5,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from pathlib2 import Path
 
-from source.utils import Nodes, Config
+from source.utils import Nodes
+from source.config import Config
 
 logger = logging.getLogger("monitor")
 

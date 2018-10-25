@@ -84,6 +84,13 @@ class SonmApi:
                       "dealID": order_status_["dealID"]}
         return result
 
+    def order_cancel(self, order_id):
+        result = None
+        order_cancel_ = self.order_cancel_rest([order_id])
+        if order_cancel_:
+            result = {}
+        return result
+
     def deal_list(self, limit):
         result = []
         deal_list_ = self.deal_list_rest(limit)
@@ -167,6 +174,10 @@ class SonmApi:
     @retry_on_status
     def order_status_rest(self, order_id):
         return self.get_node().order.status(order_id)
+
+    @retry_on_status
+    def order_cancel_rest(self, order_id):
+        return self.get_node().order.cancel(order_id)
 
     @retry_on_status(attempts=10, sleep_time=10)
     def task_status_rest(self, deal_id, task_id):

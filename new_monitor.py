@@ -9,8 +9,9 @@ from os.path import join
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from source.http_server import run_http_server, SonmHttpServer
-from source.utils import Nodes, Config, print_state, create_dir
-from source.init import init_nodes_state, init
+from source.utils import Nodes, print_state, create_dir
+from source.config import Config
+from source.init import init_nodes_state, init, reload_config
 
 
 def setup_logging(default_config='logging.yaml', default_level=logging.INFO):
@@ -30,9 +31,21 @@ def watch(executor, futures):
         futures.append(executor.submit(node.watch_node))
         time.sleep(1)
     while True in [future.running() for future in futures]:
+        # Clear finished futures
+        for future in futures:
+            if future.done():
+                futures.remove(future)
+        # Destroy nodes, if they aren't exist in reloaded config
+        for n in Nodes.get_nodes():
+            if n.node_tag not in Config.node_configs.keys():
+                n.destroy()
+                Nodes.get_nodes().remove(n)
+        # Add new nodes to executor:
+        for n in Nodes.get_nodes():
+            if not n.is_running():
+                logger.info("Adding new Node {} to executor".format(n.node_tag))
+                futures.append(executor.submit(n.watch_node))
         time.sleep(1)
-    for future in futures:
-        logger.info(future.result())
 
 
 def main():
@@ -44,7 +57,7 @@ def main():
     try:
         scheduler.start()
         scheduler.add_job(print_state, 'interval', seconds=60, id='print_state')
-        scheduler.add_job(Config.check_config, 'interval', seconds=60, id='load_config')
+        scheduler.add_job(reload_config, 'interval', kwargs={"sonm_api": sonm_api}, seconds=60, id='reload_config')
         executor.submit(run_http_server)
         watch(executor, futures)
         print_state()

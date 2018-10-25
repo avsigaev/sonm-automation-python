@@ -5,7 +5,8 @@ from os.path import join
 
 import yaml
 
-from source.utils import Config, template_bid, template_task, convert_price, TaskStatus, dump_file
+from source.utils import template_bid, template_task, convert_price, TaskStatus, dump_file
+from source.config import Config
 
 
 class State(Enum):
@@ -26,6 +27,7 @@ class State(Enum):
 
 class WorkNode:
     def __init__(self, status, sonm_api, node_tag, deal_id, task_id, bid_id, price):
+        self.RUNNING = False
         self.KEEP_WORK = True
         self.logger = logging.getLogger("monitor")
         self.node_tag = node_tag
@@ -47,8 +49,11 @@ class WorkNode:
     def create_empty(cls, sonm_api, node_tag):
         return cls(State.START, sonm_api, node_tag, "", "", "", "")
 
+    def is_running(self):
+        return self.RUNNING
+
     def reload_config(self):
-        Config.reload_config(self.node_tag)
+        Config.reload_node_config(self.node_tag)
         return Config.get_node_config(self.node_tag)
 
     def create_task_yaml(self):
@@ -108,6 +113,9 @@ class WorkNode:
             return 1
         return 60
 
+    def cancel_order(self):
+        self.sonm_api.order_cancel(self.bid_id)
+
     def start_task(self):
         # Start task on node
         self.status = State.STARTING_TASK
@@ -130,8 +138,8 @@ class WorkNode:
             self.save_task_logs("out/fail_")
         if self.status == State.TASK_FINISHED:
             self.save_task_logs("out/success_")
-        self.logger.info("Closing deal {}{}..."
-                         .format(self.deal_id, (" with blacklisting worker " if blacklist else " ")))
+        self.logger.info("Closing deal {} on Node {} {}..."
+                         .format(self.deal_id, self.node_tag, ("with blacklisting worker" if blacklist else " ")))
         deal_status = self.sonm_api.deal_status(self.deal_id)
         if deal_status and deal_status["status"] == 2:
             self.logger.error("Deal {} (Node {}) already closed".format(self.deal_id, self.node_tag))
@@ -198,6 +206,11 @@ class WorkNode:
         return 60
 
     def watch_node(self):
+        if not self.RUNNING:
+            self.do_work()
+
+    def do_work(self):
+        self.RUNNING = True
         try:
             sleep_time = 1
             while self.KEEP_WORK and self.status != State.WORK_COMPLETED:
@@ -227,7 +240,8 @@ class WorkNode:
                     self.close_deal(State.WORK_COMPLETED)
                     sleep_time = 1
                 self.wait_sleep(sleep_time)
-            self.logger.info("Node {} stopped".format(self.node_tag))
+            self.logger.info("Node {} stopped, {}"
+                             .format(self.node_tag, "work completed." if self.KEEP_WORK else "received stop signal."))
         except Exception as exc:
             self.logger.exception("Node {} failed with exception".format(self.node_tag), exc)
 
@@ -238,9 +252,22 @@ class WorkNode:
             else:
                 return
 
+    def destroy(self):
+        self.logger.info("Destroying Node {}".format(self.node_tag))
+        self.KEEP_WORK = False
+        if self.status in [State.DEAL_OPENED, State.STARTING_TASK, State.TASK_RUNNING, State.TASK_FAILED,
+                           State.TASK_FAILED_TO_START, State.TASK_BROKEN, State.TASK_FINISHED]:
+            self.close_deal(State.WORK_COMPLETED)
+        elif self.status == State.AWAITING_DEAL:
+            self.cancel_order()
+        elif self.status == State.PLACING_ORDER:
+            while self.status != State.AWAITING_DEAL:
+                time.sleep(1)
+                self.cancel_order()
+
     def stop_work(self):
         self.KEEP_WORK = False
-        self.logger.info("Stopping Node {} ...".format(self.node_tag))
+        self.logger.info("Stopping Node {}...".format(self.node_tag))
 
     def save_task_logs(self, prefix):
         self.sonm_api.task_logs(self.deal_id, self.task_id, "1000000",

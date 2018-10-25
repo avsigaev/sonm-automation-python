@@ -4,15 +4,21 @@ from os import listdir
 from os.path import join
 
 from source.sonmapi import SonmApi
-from source.utils import Nodes, create_dir, Config
+from source.utils import Nodes, create_dir
+from source.config import Config
 from source.worknode import WorkNode, State
 
 logger = logging.getLogger("monitor")
 
 
-def get_missed_nodes(sonm_api, nodes_):
+def reload_config(sonm_api):
+    Config.load_config()
+    get_missed_nodes(sonm_api, Nodes.nodes_, Config.node_configs)
+
+
+def get_missed_nodes(sonm_api, nodes_, node_configs):
     live_nodes_tags = [n.node_tag for n in nodes_]
-    for node_tag, node_config in Config.node_configs.items():
+    for node_tag, node_config in node_configs.items():
         if node_tag not in live_nodes_tags:
             nodes_.append(WorkNode.create_empty(sonm_api, node_tag))
     return nodes_
@@ -56,8 +62,7 @@ def init_nodes_state(sonm_api):
                     node_ = WorkNode(status, sonm_api, order_["tag"], "", "", order_["id"], price)
                     logger.info("Found order, id {} (Node {})".format(order_["id"], order_["tag"]))
                     nodes_.append(node_)
-    get_missed_nodes(sonm_api, nodes_)
-    Nodes.nodes_ = nodes_
+    Nodes.nodes_ = get_missed_nodes(sonm_api, nodes_, Config.node_configs)
 
 
 def init():
