@@ -68,7 +68,9 @@ def init():
 
     Config.load_config()
     key_file_path = Config.base_config["ethereum"]["key_path"]
-    onlyfiles = [f for f in listdir(key_file_path) if isfile(join(key_file_path, f))]
+    keys = [f for f in listdir(key_file_path) if isfile(join(key_file_path, f))]
+    if len(keys) == 0:
+        raise Exception("Key storage doesn't contain any files")
     key_password = Config.base_config["ethereum"]["password"]
     node_addr = Config.base_config["node_address"]
-    return SonmApi(set_sonmcli(), Node(join(key_file_path, onlyfiles[0]), key_password, node_addr))
+    return SonmApi(join(key_file_path, keys[0]), key_password, node_addr)

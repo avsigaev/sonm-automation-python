@@ -14,6 +14,7 @@ import ruamel.yaml
 from jinja2 import Template
 
 from pathlib2 import Path
+from ruamel import yaml
 from ruamel.yaml import YAML
 from tabulate import tabulate
 
@@ -124,7 +125,7 @@ def parse_price(price_: str):
         raise Exception("Cannot parse price {}".format(price_))
 
 
-def set_sonmcli():
+def get_sonmcli():
     if platform.system() == "Darwin":
         return "sonmcli_darwin_x86_64"
     else:
@@ -201,6 +202,11 @@ def template_bid(config, tag, counterparty=None):
     if counterparty:
         bid_template["counterparty"] = counterparty
     return bid_template
+
+
+def dump_file(data, filename):
+    with open(filename, 'w+') as file:
+        yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
 
 
 def template_task(file_, node_tag):

@@ -3,9 +3,9 @@ import time
 from enum import Enum
 from os.path import join
 
-from ruamel import yaml
+import yaml
 
-from source.utils import threaded, Config, template_bid, template_task, convert_price, TaskStatus
+from source.utils import threaded, Config, template_bid, template_task, convert_price, TaskStatus, dump_file
 
 
 class State(Enum):
@@ -53,8 +53,9 @@ class WorkNode:
     def create_task_yaml(self):
         self.logger.info("Creating task file for Node {}".format(self.node_tag))
         file_ = join(Config.config_folder, self.config["template_file"])
-        self.task_ = template_task(file_, self.node_tag)
-        self.dump_file(self.task_, self.task_file)
+        dump_file(template_task(file_, self.node_tag), self.task_file)
+        with open(self.task_file) as f:
+            self.task_ = yaml.safe_load(f)
 
     def create_bid_yaml(self):
         self.logger.info("Creating order file for Node {}".format(self.node_tag))
@@ -66,7 +67,7 @@ class WorkNode:
 
         self.logger.info("Predicted price for Node {} is {:.4f} USD/h, order price is {}"
                          .format(self.node_tag, predicted_, self.price))
-        self.dump_file(self.bid_, self.bid_file)
+        dump_file(self.bid_, self.bid_file)
 
     def get_price(self, bid_):
         predicted_price = self.sonm_api.predict_bid(bid_["resources"])
@@ -110,7 +111,7 @@ class WorkNode:
         # Start task on node
         self.status = State.STARTING_TASK
         self.logger.info("Starting task on node {} ...".format(self.node_tag))
-        task = self.sonm_api.task_start(self.deal_id, self.task_file)
+        task = self.sonm_api.task_start(self.deal_id, self.task_)
         if not task:
             self.logger.info("Failed to start task (Node {}) on deal {}. Closing deal and blacklisting counterparty "
                              "worker's address...".format(self.node_tag, self.deal_id))
@@ -236,8 +237,3 @@ class WorkNode:
     @staticmethod
     def format_price(price_, readable=False):
         return "{0:.4f}{1}USD/h".format(float(price_), " " if readable else "")
-
-    @staticmethod
-    def dump_file(data, filename):
-        with open(filename, 'w+') as file:
-            yaml.dump(data, file, Dumper=yaml.RoundTripDumper)

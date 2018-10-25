@@ -1,70 +1,57 @@
-import json
+import functools
 import logging
 import subprocess
 import time
 
 from pytimeparse.timeparse import timeparse
-from source.utils import convert_price, parse_tag, parse_price, Identity
+from sonm_pynode.main import Node
+
+from source.utils import convert_price, parse_tag, parse_price, Identity, get_sonmcli
 
 
-def retry_on_status(fn, retry=True, attempts=3, sleep_time=3):
+def retry_on_status(_func=None, *, attempts=3, sleep_time=3):
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            attempt = 1
+            while True:
+                r = fn(*args, **kwargs)
+                if "status_code" in r and r["status_code"] == 200:
+                    return r
+                if attempt > attempts:
+                    break
+                attempt += 1
+                time.sleep(sleep_time)
+            return None
+
+        return wrapper
+
+    if _func is None:
+        return decorator
+    else:
+        return decorator(_func)
+
+
+def check_status(fn):
     def wrapper(*args, **kwargs):
-        attempt = 1
-        while True:
-            r = fn(*args, **kwargs)
-            if "status_code" in r and r["status_code"] == 200:
-                return r
-            if not retry or attempt > attempts:
-                break
-            attempt += 1
-            time.sleep(sleep_time)
+        r = fn(*args, **kwargs)
+        if "status_code" in r and r["status_code"] == 200:
+            return r
         return None
 
     return wrapper
 
 
 class SonmApi:
-    def __init__(self, cli, node):
-        self.cli = cli
-        self.node = node
+    def __init__(self, key_file: str, password: str, endpoint: str):
+        self.node = Node(key_file, password, endpoint)
         self.logger = logging.getLogger("monitor")
-
-    @classmethod
-    def only_cli(cls, cli):
-        return cls(cli, None)
 
     def get_node(self):
         if self.node:
             return self.node
         else:
             raise Exception("Sonm node api not initialized")
-
-    def exec(self, param, retry=False, attempts=3, sleep_time=1):
-        command = [self.cli] + param
-        command.append("--json")
-        attempt = 1
-        errors_ = []
-        while True:
-            result = subprocess.run(command, stdout=subprocess.PIPE)
-            if result.returncode == 0:
-                break
-            errors_.append(str(result.stdout.decode("utf-8")))
-            if not retry or attempt > attempts:
-                break
-            attempt += 1
-            time.sleep(sleep_time)
-        if result.returncode != 0:
-            self.logger.error("Failed to execute command: {}".format(' '.join(command)))
-            self.logger.error('\n'.join(errors_))
-            return None
-        if result.stdout.decode("utf-8") == "null":
-            return {}
-        return json.loads(result.stdout.decode("utf-8"))
-
-    def task_logs(self, deal_id, task_id, rownum, filename):
-        command = [self.cli, "task", "logs", deal_id, task_id, "--tail", rownum]
-        with open(filename, "w") as outfile:
-            subprocess.call(command, stdout=outfile)
 
     def order_create(self, order):
         result = None
@@ -97,9 +84,9 @@ class SonmApi:
                       "dealID": order_status_["dealID"]}
         return result
 
-    def deal_list(self, number_of_nodes):
+    def deal_list(self, limit):
         result = []
-        deal_list_ = self.deal_list_rest(number_of_nodes)
+        deal_list_ = self.deal_list_rest(limit)
         if deal_list_ and "deals" in deal_list_:
             for d in [d_["deal"] for d_ in deal_list_['deals']]:
                 result.append({"id": d["id"]})
@@ -136,9 +123,9 @@ class SonmApi:
                       "uptime": str(int(float(int(task_status_["uptime"]) / 1e9)))}
         return result
 
-    def task_start(self, deal_id, task_file):
+    def task_start(self, deal_id, task):
         result = None
-        task_start = self.exec(["task", "start", deal_id, task_file, "--timeout=15m"], retry=True)
+        task_start = self.task_start_rest(deal_id, task)
         if task_start:
             result = {"id": task_start["id"]}
         return result
@@ -181,12 +168,16 @@ class SonmApi:
     def order_status_rest(self, order_id):
         return self.get_node().order.status(order_id)
 
-    @retry_on_status
+    @retry_on_status(attempts=10, sleep_time=10)
     def task_status_rest(self, deal_id, task_id):
         return self.get_node().task.status(deal_id, task_id)
 
+    @check_status
     def task_start_rest(self, deal_id, task):
-        return self.get_node().task.start(deal_id, task)
+        return self.get_node().task.start(deal_id, task, timeout=900)
 
-    def task_logs_rest(self, deal_id, task_id):
-        return self.get_node().task.logs(deal_id, task_id)
+    @staticmethod
+    def task_logs(deal_id, task_id, rownum, filename):
+        command = [get_sonmcli(), "task", "logs", deal_id, task_id, "--tail", rownum]
+        with open(filename, "w") as outfile:
+            subprocess.call(command, stdout=outfile)
