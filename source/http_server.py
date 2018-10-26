@@ -84,7 +84,6 @@ def run_http_server():
         while SonmHttpServer.KEEP_RUNNING:
             if not thread.is_alive():
                 thread = get_http_thread(server)
-            # TODO check if http server alive (restart)
             time.sleep(1)
         logger.info("Http server stopped")
 
