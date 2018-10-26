@@ -40,7 +40,7 @@ class Config(object):
                 ntag = "{}_{}".format(task_config["tag"], num)
                 temp_node_configs[ntag] = task_config
                 logger.debug("Config for node {} was created successfully".format(ntag))
-                logger.trace("Config: {}".format(json.dumps(task_config, sort_keys=True, indent=4)))
+                logger.debug("Config: {}".format(json.dumps(task_config, sort_keys=True, indent=4)))
         return temp_node_configs
 
     @staticmethod
