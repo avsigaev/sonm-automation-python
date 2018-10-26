@@ -8,6 +8,8 @@ ethereum:
 
 # http server config
 http_server:
+  user: "sonm"
+  password: "sonm"
   run: true
   port: 8081
 
