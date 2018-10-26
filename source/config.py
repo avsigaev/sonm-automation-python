@@ -31,12 +31,16 @@ class Config(object):
 
     @staticmethod
     def load_task_configs():
-        # TODO check tasks tag (must be different)
         temp_node_configs = {}
         logger.debug("Try to parse configs:")
-        for task in Config.base_config["tasks"]:
-            task_config = Config.load_cfg(task)
-
+        if not Config.base_config["tasks"]:
+            raise Exception("Configuration must have at least one task")
+        else:
+            loaded_tasks = [Config.load_cfg(task) for task in Config.base_config["tasks"]]
+            tags = [task["tag"] for task in loaded_tasks if "tag" in task]
+            if len(tags) != len(set(tags)):
+                raise Exception("Config has tasks with same tag")
+        for task_config in loaded_tasks:
             Config.validate_config_keys(["numberofnodes", "tag", "price_coefficient", "max_price", "ets",
                                          "task_start_timeout", "template_file", "duration", "counterparty",
                                          "identity", "ramsize", "storagesize", "cpucores", "sysbenchsingle",
