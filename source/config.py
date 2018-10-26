@@ -41,7 +41,7 @@ class Config(object):
                                          "task_start_timeout", "template_file", "duration", "counterparty",
                                          "identity", "ramsize", "storagesize", "cpucores", "sysbenchsingle",
                                          "sysbenchmulti", "netdownload", "netupload", "overlay", "incoming",
-                                         "gpucount", "gpumem", "ethhashrate"], task)
+                                         "gpucount", "gpumem", "ethhashrate"], task_config)
             for num in range(1, task_config["numberofnodes"] + 1):
                 task_config["counterparty"] = validate_eth_addr(task_config["counterparty"])
                 ntag = "{}_{}".format(task_config["tag"], num)
