@@ -20,6 +20,7 @@ class HTTPServerRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
+            # TODO simple auth, price, clean state force (for task) , stop all (for task)
             # Check the file extension required and
             # set the right mime type
             if self.path.endswith(".css"):
@@ -83,5 +84,7 @@ def run_http_server():
         thread.start()
 
         while SonmHttpServer.KEEP_RUNNING:
+            # TODO check if http server alive (restart)
             time.sleep(1)
+
         logger.info("Http server stopped")

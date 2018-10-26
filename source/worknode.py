@@ -267,7 +267,7 @@ class WorkNode:
 
     def stop_work(self):
         self.KEEP_WORK = False
-        self.logger.info("Stopping Node {}...".format(self.node_tag))
+        self.logger.debug("Stopping Node {}...".format(self.node_tag))
 
     def save_task_logs(self, prefix):
         self.sonm_api.task_logs(self.deal_id, self.task_id, "1000000",

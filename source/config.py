@@ -31,7 +31,8 @@ class Config(object):
 
     @staticmethod
     def load_task_configs():
-        temp_node_configs ={}
+        # TODO check tasks tag (must be different)
+        temp_node_configs = {}
         logger.debug("Try to parse configs:")
         for task in Config.base_config["tasks"]:
             task_config = Config.load_cfg(task)
