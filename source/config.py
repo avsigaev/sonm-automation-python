@@ -36,6 +36,12 @@ class Config(object):
         logger.debug("Try to parse configs:")
         for task in Config.base_config["tasks"]:
             task_config = Config.load_cfg(task)
+
+            Config.validate_config_keys(["numberofnodes", "tag", "price_coefficient", "max_price", "ets",
+                                         "task_start_timeout", "template_file", "duration", "counterparty",
+                                         "identity", "ramsize", "storagesize", "cpucores", "sysbenchsingle",
+                                         "sysbenchmulti", "netdownload", "netupload", "overlay", "incoming",
+                                         "gpucount", "gpumem", "ethhashrate"], task)
             for num in range(1, task_config["numberofnodes"] + 1):
                 task_config["counterparty"] = validate_eth_addr(task_config["counterparty"])
                 ntag = "{}_{}".format(task_config["tag"], num)
@@ -48,12 +54,15 @@ class Config(object):
     def load_base_config():
         logger.debug("Loading base config")
         temp_config = Config.load_cfg()
-        config_keys = ["node_address", "ethereum", "tasks"]
+        Config.validate_config_keys(["node_address", "ethereum", "tasks"], temp_config)
+        Config.base_config = temp_config
+        logger.debug("Base config loaded")
+
+    @staticmethod
+    def validate_config_keys(config_keys, temp_config):
         missed_keys = [key for key in config_keys if key not in temp_config]
         if len(missed_keys) > 0:
             raise Exception("Missed keys: '{}'".format("', '".join(missed_keys)))
-        Config.base_config = temp_config
-        logger.debug("Base config loaded")
 
     @staticmethod
     def reload_node_config(node_tag):

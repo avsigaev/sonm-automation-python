@@ -130,9 +130,9 @@ class SonmApi:
                       "uptime": str(int(float(int(task_status_["uptime"]) / 1e9)))}
         return result
 
-    def task_start(self, deal_id, task):
+    def task_start(self, deal_id, task, timeout):
         result = None
-        task_start = self.task_start_rest(deal_id, task)
+        task_start = self.task_start_rest(deal_id, task, timeout)
         if task_start:
             result = {"id": task_start["id"]}
         return result
@@ -184,8 +184,8 @@ class SonmApi:
         return self.get_node().task.status(deal_id, task_id)
 
     @check_status
-    def task_start_rest(self, deal_id, task):
-        return self.get_node().task.start(deal_id, task, timeout=900)
+    def task_start_rest(self, deal_id, task, timeout):
+        return self.get_node().task.start(deal_id, task, timeout=timeout)
 
     @staticmethod
     def task_logs(deal_id, task_id, rownum, filename):

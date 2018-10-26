@@ -12,6 +12,8 @@ max_price: "0.02"
 # Estimated time of successful start of task (blacklist worker if task failed before ets)
 ets: 180
 
+task_start_timeout: 600
+
 # Template for task yaml
 template_file: "claymore.yaml"
 
@@ -19,7 +21,7 @@ template_file: "claymore.yaml"
 duration: 0h
 
 # optional, sets counterparty for orders to take, must be HEX(40) string. Will be removed automatically in case of error/not set
-counterparty: "legjhrbkjhersbv"
+counterparty: ""
 # Identity level of the counterparty. Can be "anonymous", "registered", "identified" and "professional".
 identity: "anonymous"
 
