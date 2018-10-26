@@ -79,12 +79,18 @@ def run_http_server():
         server = HTTPServer(('0.0.0.0', Config.base_config["http_server"]["port"]), HTTPServerRequestHandler)
         logger.info("Agent started on port: {}".format(Config.base_config["http_server"]["port"]))
 
-        thread = threading.Thread(target=server.serve_forever)
-        thread.daemon = True
-        thread.start()
+        thread = get_http_thread(server)
 
         while SonmHttpServer.KEEP_RUNNING:
+            if not thread.is_alive():
+                thread = get_http_thread(server)
             # TODO check if http server alive (restart)
             time.sleep(1)
-
         logger.info("Http server stopped")
+
+
+def get_http_thread(server):
+    thread = threading.Thread(target=server.serve_forever)
+    thread.daemon = True
+    thread.start()
+    return thread
