@@ -5,31 +5,34 @@
   `git clone git://github.com/avsigaev/sonm-automation-python.git`
   
 **Mac OS X:**  
-  `brew install python3`
   
-  `pip3 install -r requirements.txt`
+  `pip3.7 install -r requirements.txt`
 
 **Linux:**
-  `apt-get install python3 python3-pip`
   
-  `pip3 install -r requirements.txt`
+  `pip3.7 install -r requirements.txt`
 
 ## Configuration
 
-- Edit config.yaml to describe hardware configuration requirements for your task.
-- Create or edit specification of your task you want to run in SONM (see claymore.yaml for example).
+- Describe hardware requirements (see *config_task_claymore.yaml* for example);
+- Describe specification of your task you want to run in SONM (see *claymore.yaml* for example);
+- Edit config.yaml to describe keystore settings and list of tasks for managing.
 
-## Run 
+You may use this bot to manage multiple different tasks. Task configs must have differemt tags.
+You may change configs and you don't need to interrupt bot for this (add/remove tasks, increase or reduce number of instances for each task). Configs are reloaded once per minute.
 
-  `./new_monitor.py`
+## Usage
 
-This will run bot. It will create orders and wait for deals.
+`./new_monitor.py` (or `nohup ./new_monitor.py &` to run bot in background).
+
+Bot will create orders and wait for deals.
 When deal appears, it will start task and will track it.
 
-If you want to change hardware requirements, you may change config and run:
+You may see bot stats at http://localhost:8081 (you may change default port in config).
 
-`./recreate_orders.py`
+Bot logs are in *monitor.log*.
 
-and
+If you want to change order price, you may change config and run `sonmcli order purge`.
 
-`./amnesty.py` to clear blacklist.
+Bot will close deals if task has failed to start.
+Run `./amnesty.py` to clear blacklist.
