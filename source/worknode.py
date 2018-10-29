@@ -54,7 +54,7 @@ class WorkNode:
 
     def reload_config(self):
         Config.reload_node_config(self.node_tag)
-        return Config.get_node_config(self.node_tag)
+        self.config = Config.get_node_config(self.node_tag)
 
     def create_task_yaml(self):
         self.logger.info("Creating task file for Node {}".format(self.node_tag))
