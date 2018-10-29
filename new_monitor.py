@@ -65,8 +65,8 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
+        logger.info("Keyboard interrupt, script exiting. Sonm node will continue work")
         for n in Nodes.get_nodes():
-            logger.info("Keyboard interrupt, script exiting. Sonm node will continue work")
             n.stop_work()
         SonmHttpServer.KEEP_RUNNING = False
         executor.shutdown(wait=False)

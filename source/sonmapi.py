@@ -1,17 +1,19 @@
-import functools
 import logging
 import subprocess
 import time
+from functools import wraps
 
 from pytimeparse.timeparse import timeparse
 from sonm_pynode.main import Node
 
 from source.utils import convert_price, parse_tag, parse_price, Identity, get_sonmcli
 
+logger = logging.getLogger("monitor")
+
 
 def retry_on_status(_func=None, *, attempts=3, sleep_time=3):
     def decorator(fn):
-        @functools.wraps(fn)
+        @wraps(fn)
         def wrapper(*args, **kwargs):
             attempt = 1
             while True:
@@ -22,6 +24,7 @@ def retry_on_status(_func=None, *, attempts=3, sleep_time=3):
                     break
                 attempt += 1
                 time.sleep(sleep_time)
+            logger.error("Failed to execute {}: {}".format(fn.__name__, r))
             return None
 
         return wrapper
@@ -30,16 +33,6 @@ def retry_on_status(_func=None, *, attempts=3, sleep_time=3):
         return decorator
     else:
         return decorator(_func)
-
-
-def check_status(fn):
-    def wrapper(*args, **kwargs):
-        r = fn(*args, **kwargs)
-        if "status_code" in r and r["status_code"] == 200:
-            return r
-        return None
-
-    return wrapper
 
 
 class SonmApi:
@@ -183,7 +176,7 @@ class SonmApi:
     def task_status_rest(self, deal_id, task_id):
         return self.get_node().task.status(deal_id, task_id)
 
-    @check_status
+    @retry_on_status(attempts=1)
     def task_start_rest(self, deal_id, task, timeout):
         return self.get_node().task.start(deal_id, task, timeout=timeout)
 

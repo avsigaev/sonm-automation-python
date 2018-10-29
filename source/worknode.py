@@ -122,8 +122,8 @@ class WorkNode:
         self.logger.info("Starting task on node {} ...".format(self.node_tag))
         task = self.sonm_api.task_start(self.deal_id, self.task_, self.config["task_start_timeout"])
         if not task:
-            self.logger.info("Failed to start task (Node {}) on deal {}. Closing deal and blacklisting counterparty "
-                             "worker's address...".format(self.node_tag, self.deal_id))
+            self.logger.error("Failed to start task (Node {}) on deal {}. Closing deal and blacklisting counterparty "
+                              "worker's address...".format(self.node_tag, self.deal_id))
             self.status = State.TASK_FAILED_TO_START
         else:
             self.logger.info("Task (Node {}) started: deal {} with task_id {}"
