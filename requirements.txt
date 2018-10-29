@@ -1,5 +1,7 @@
+pytimeparse
 tabulate
 apscheduler
 jinja2
 ruamel.yaml
 pathlib2
+git+git://github.com/abefimov/sonm-pynode.git

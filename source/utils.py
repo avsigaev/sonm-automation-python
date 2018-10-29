@@ -1,12 +1,54 @@
 import base64
 import errno
+import logging
 import os
 import platform
+import re
 from concurrent.futures import Future
+from enum import Enum
 from threading import Thread
 
-from pathlib2 import Path
-from ruamel.yaml import YAML
+import ruamel.yaml
+from jinja2 import Template
+
+from ruamel import yaml
+from tabulate import tabulate
+
+logger = logging.getLogger("monitor")
+
+
+class Identity(Enum):
+    unknown = 0
+    anonymous = 1
+    registered = 2
+    identified = 3
+    professional = 4
+
+
+class TaskStatus(Enum):
+    unknown = 0
+    spooling = 1
+    spawning = 2
+    running = 3
+    finished = 4
+    broken = 5
+
+
+class Nodes(object):
+    nodes_ = []
+
+    @staticmethod
+    def get_nodes():
+        Nodes.nodes_.sort(key=lambda x: natural_keys(x.node_tag))
+        return Nodes.nodes_
+
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    return [atoi(c) for c in re.split("(\d+)", text)]
 
 
 def parse_tag(order_):
@@ -22,14 +64,18 @@ def create_dir(dir_):
                 raise
 
 
-def load_cfg(path='config.yaml'):
-    if os.path.exists(path):
-        path = Path(path)
-        yaml_ = YAML(typ='safe')
-        return yaml_.load(path)
+def convert_price(price_):
+    return int(price_) / 1e18 * 3600
 
 
-def set_sonmcli():
+def parse_price(price_: str):
+    if price_.endswith("USD/h") or price_.endswith("USD/s"):
+        return int(float(price_[:-5]) * 1e18 / 3600)
+    else:
+        raise Exception("Cannot parse price {}".format(price_))
+
+
+def get_sonmcli():
     if platform.system() == "Darwin":
         return "sonmcli_darwin_x86_64"
     else:
@@ -51,3 +97,70 @@ def threaded(fn):
         return future
 
     return wrapper
+
+
+def validate_eth_addr(eth_addr):
+    pattern = re.compile("^0x[a-fA-F0-9]{40}$")
+    if eth_addr and pattern.match(eth_addr):
+        logger.debug("Eth address was parsed successfully: " + eth_addr)
+        return eth_addr
+    else:
+        logger.debug("Incorrect eth address or not specified")
+        return None
+
+
+def print_state():
+    tabul_nodes = [[n.node_tag, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n in
+                   Nodes.get_nodes()]
+    logger.info("Nodes:\n" +
+                tabulate(tabul_nodes,
+                         ["Node", "Order id", "Order price", "Deal id", "Task id", "Task uptime", "Node status"],
+                         tablefmt="grid"))
+
+
+def template_bid(config, tag, counterparty=None):
+    gpumem = config["gpumem"]
+    ethhashrate = config["ethhashrate"]
+    if config["gpucount"] == 0:
+        gpumem = 0
+        ethhashrate = 0
+    bid_template = {
+        "duration": config["duration"],
+        "price": "0USD/h",
+        "identity": config["identity"],
+        "tag": tag,
+        "resources": {
+            "network": {
+                "overlay": config["overlay"],
+                "outbound": True,
+                "incoming": config["incoming"]
+            },
+            "benchmarks": {
+                "ram-size": config["ramsize"] * 1024 * 1024,
+                "storage-size": config["storagesize"] * 1024 * 1024 * 1024,
+                "cpu-cores": config["cpucores"],
+                "cpu-sysbench-single": config["sysbenchsingle"],
+                "cpu-sysbench-multi": config["sysbenchmulti"],
+                "net-download": config["netdownload"] * 1024 * 1024,
+                "net-upload": config["netupload"] * 1024 * 1024,
+                "gpu-count": config["gpucount"],
+                "gpu-mem": gpumem * 1024 * 1024,
+                "gpu-eth-hashrate": ethhashrate * 1000000
+            }
+        }
+    }
+    if counterparty:
+        bid_template["counterparty"] = counterparty
+    return bid_template
+
+
+def dump_file(data, filename):
+    with open(filename, 'w+') as file:
+        yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
+
+
+def template_task(file_, node_tag):
+    with open(file_, 'r') as fp:
+        t = Template(fp.read())
+        data = t.render(node_tag=node_tag)
+        return ruamel.yaml.round_trip_load(data, preserve_quotes=True)

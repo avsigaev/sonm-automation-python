@@ -1,0 +1,17 @@
+#cluster settings
+
+#node config
+node_address: 'http://127.0.0.1:15031'
+ethereum:
+  key_path: "/Users/abefimov/autobot-keystore"
+  password: "11111111"
+
+# http server config
+http_server:
+  user: "sonm"
+  password: "sonm"
+  run: true
+  port: 8081
+
+tasks:
+  - config_task_claymore.yaml
