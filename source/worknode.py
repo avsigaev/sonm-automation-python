@@ -60,7 +60,9 @@ class WorkNode:
     def create_task_yaml(self):
         self.logger.info("Creating task file for Node {}".format(self.node_tag))
         file_ = join(Config.config_folder, self.config["template_file"])
-        dump_file(template_task(file_, self.node_tag), self.task_file)
+        kwargs = {'node_tag': self.node_tag}
+        data = template_task(file_, kwargs)
+        dump_file(data, self.task_file)
         with open(self.task_file) as f:
             self.task_ = yaml.safe_load(f)
 

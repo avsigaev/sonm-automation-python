@@ -4,9 +4,7 @@ import logging
 import os
 import platform
 import re
-from concurrent.futures import Future
 from enum import Enum
-from threading import Thread
 
 import ruamel.yaml
 from jinja2 import Template
@@ -147,8 +145,10 @@ def dump_file(data, filename):
         yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
 
 
-def template_task(file_, node_tag):
+def template_task(file_, kwargs=None):
+    if not kwargs:
+        kwargs = {}
     with open(file_, 'r') as fp:
         t = Template(fp.read())
-        data = t.render(node_tag=node_tag)
+        data = t.render(**kwargs)
         return ruamel.yaml.round_trip_load(data, preserve_quotes=True)

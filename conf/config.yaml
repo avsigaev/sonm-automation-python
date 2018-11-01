@@ -15,4 +15,3 @@ http_server:
 
 tasks:
   - config_task_claymore.yaml
-  - config_task_claymore2.yaml

@@ -82,7 +82,8 @@ def create_app(configfile=None):
             nodes_content = [{
                 'node_tag': tag,
                 'predicted_price': Config.formatted_price_for_tag(tag),
-                'nodes_table': NodesTable([node.as_table_item for node in nodes])
+                'nodes_table': NodesTable([node.as_table_item for node in nodes],
+                                          classes=['table', 'table-striped', 'table-bordered'])
             }
                 for tag, nodes in groups.items()]
 
