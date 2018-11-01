@@ -31,6 +31,7 @@ class WorkNode:
         self.KEEP_WORK = True
         self.logger = logging.getLogger("monitor")
         self.node_tag = node_tag
+        self.tag = self.node_tag.split('_')[0]
         self.config = Config.get_node_config(self.node_tag)
         self.status = status
         self.sonm_api = sonm_api
@@ -67,23 +68,25 @@ class WorkNode:
         self.logger.info("Creating order file for Node {}".format(self.node_tag))
         self.bid_ = template_bid(self.config, self.node_tag, self.config["counterparty"])
 
-        price_, predicted_ = self.get_price(self.bid_)
+        price_, predicted_, predicted_w_coeff_ = self.get_price()
         self.price = self.format_price(price_, readable=True)
         self.bid_["price"] = self.format_price(price_)
 
-        self.logger.info("Predicted price for Node {} is {:.4f} USD/h, order price is {}"
-                         .format(self.node_tag, predicted_, self.price))
+        self.logger.info("Predicted price for Node {} is {:.4f} USD/h, with coefficient {:.4f} USD/h, order price is {}"
+                         .format(self.node_tag, predicted_, predicted_w_coeff_, self.price))
         dump_file(self.bid_, self.bid_file)
 
-    def get_price(self, bid_):
-        predicted_price = self.sonm_api.predict_bid(bid_["resources"])
-        result_price = self.config["max_price"]
-        price_ = 0
+    def get_price(self):
+        predicted_price = Config.price_for_tag(self.tag)
+        price_ = self.config["max_price"]
+        predicted_w_coeff_ = 0
+        predicted_ = 0
         if predicted_price:
-            price_ = predicted_price["perHourUSD"] * (1 + int(self.config["price_coefficient"]) / 100)
-            if price_ < float(self.config["max_price"]):
-                result_price = price_
-        return result_price, price_
+            predicted_ = predicted_price["perHourUSD"]
+            predicted_w_coeff_ = predicted_ * (1 + int(self.config["price_coefficient"]) / 100)
+            if predicted_w_coeff_ < float(self.config["max_price"]):
+                price_ = predicted_w_coeff_
+        return price_, predicted_, predicted_w_coeff_
 
     def create_order(self):
         self.reload_config()
@@ -272,6 +275,16 @@ class WorkNode:
     def save_task_logs(self, prefix):
         self.sonm_api.task_logs(self.deal_id, self.task_id, "1000000",
                                 "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
+
+    @property
+    def as_table_item(self):
+        return dict(node=self.node_tag,
+                    order_id=self.bid_id,
+                    order_price=self.price,
+                    deal_id=self.deal_id,
+                    task_id=self.task_id,
+                    task_uptime=self.task_uptime,
+                    node_status=self.status.name)
 
     @staticmethod
     def format_price(price_, readable=False):

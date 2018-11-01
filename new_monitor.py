@@ -11,14 +11,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from source.http_server import run_http_server, SonmHttpServer
 from source.utils import Nodes, print_state, create_dir
 from source.config import Config
-from source.init import init_nodes_state, init, reload_config
+from source.init import init_nodes_state, reload_config, init_sonm_api
 
 
 def setup_logging(default_config='logging.yaml', default_level=logging.INFO):
-    """Setup logging configuration
-
-    """
-    create_dir("out/logs")
     if os.path.exists(join(Config.config_folder, default_config)):
         config = Config.load_cfg(default_config)
         dictConfig(config)
@@ -49,7 +45,10 @@ def watch(executor, futures):
 
 
 def main():
-    sonm_api = init()
+    create_dir("out/logs", "out/orders", "out/tasks")
+    Config.load_config()
+    sonm_api = init_sonm_api()
+    Config.load_prices(sonm_api)
     init_nodes_state(sonm_api)
     scheduler = BackgroundScheduler()
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)

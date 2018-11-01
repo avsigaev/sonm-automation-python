@@ -4,7 +4,7 @@ from os import listdir
 from os.path import join
 
 from source.sonmapi import SonmApi
-from source.utils import Nodes, create_dir
+from source.utils import Nodes
 from source.config import Config
 from source.worknode import WorkNode, State
 
@@ -13,6 +13,7 @@ logger = logging.getLogger("monitor")
 
 def reload_config(sonm_api):
     Config.load_config()
+    Config.load_prices(sonm_api)
     get_missed_nodes(sonm_api, Nodes.nodes_, Config.node_configs)
 
 
@@ -65,15 +66,12 @@ def init_nodes_state(sonm_api):
     Nodes.nodes_ = get_missed_nodes(sonm_api, nodes_, Config.node_configs)
 
 
-def init():
-    create_dir("out/orders")
-    create_dir("out/tasks")
-
-    Config.load_config()
+def init_sonm_api():
     key_file_path = Config.base_config["ethereum"]["key_path"]
     keys = [f for f in listdir(key_file_path) if isfile(join(key_file_path, f))]
     if len(keys) == 0:
         raise Exception("Key storage doesn't contain any files")
     key_password = Config.base_config["ethereum"]["password"]
     node_addr = Config.base_config["node_address"]
-    return SonmApi(join(key_file_path, keys[0]), key_password, node_addr)
+    sonm_api = SonmApi(join(key_file_path, keys[0]), key_password, node_addr)
+    return sonm_api
