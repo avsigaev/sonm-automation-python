@@ -293,16 +293,16 @@ class WorkNode:
         return "{0:.4f}{1}USD/h".format(float(price_), " " if readable else "")
 
 
-def get_class(node_state: State):
+def get_css_class(node_state: State):
     if node_state in [State.TASK_FAILED, State.TASK_FAILED_TO_START, State.TASK_BROKEN]:
         return "table-danger"
     elif node_state in [State.DEAL_DISAPPEARED]:
         return "table-warning"
     elif node_state in [State.TASK_RUNNING, State.TASK_FINISHED]:
         return "table-success"
-    elif node_state in [State.STARTING_TASK]:
+    elif node_state in [State.DEAL_OPENED, State.STARTING_TASK]:
         return "table-primary"
-    elif node_state in [State.START, State.CREATE_ORDER, State.PLACING_ORDER, State.AWAITING_DEAL, State.DEAL_OPENED]:
+    elif node_state in [State.START, State.CREATE_ORDER, State.PLACING_ORDER, State.AWAITING_DEAL]:
         return "table-info"
     else:
         return "table-light"
@@ -317,4 +317,4 @@ class TableItem(object):
         self.task_id = task_id
         self.task_uptime = task_uptime
         self.node_status = node_status.name
-        self.css_class = get_class(node_status)
+        self.css_class = get_css_class(node_status)
