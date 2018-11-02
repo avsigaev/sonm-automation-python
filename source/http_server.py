@@ -46,6 +46,9 @@ class NodesTable(Table):
     def sort_url(self, col_id, reverse=False):
         pass
 
+    def get_tr_attrs(self, item):
+        return {'class': item.css_class}
+
     node = Col('Node')
     order_id = Col('Order id')
     order_price = Col('Order Price')
@@ -53,17 +56,6 @@ class NodesTable(Table):
     task_id = Col('Task id')
     task_uptime = Col('Task uptime')
     node_status = Col('Node status')
-
-
-class TableItem(object):
-    def __init__(self, node, order_id, order_price, deal_id, task_id, task_uptime, node_status):
-        self.node = node
-        self.order_id = order_id
-        self.order_price = order_price
-        self.deal_id = deal_id
-        self.task_id = task_id
-        self.task_uptime = task_uptime
-        self.node_status = node_status
 
 
 def create_app(configfile=None):

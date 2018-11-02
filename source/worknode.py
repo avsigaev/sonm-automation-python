@@ -280,14 +280,41 @@ class WorkNode:
 
     @property
     def as_table_item(self):
-        return dict(node=self.node_tag,
-                    order_id=self.bid_id,
-                    order_price=self.price,
-                    deal_id=self.deal_id,
-                    task_id=self.task_id,
-                    task_uptime=self.task_uptime,
-                    node_status=self.status.name)
+        return TableItem(node=self.node_tag,
+                         order_id=self.bid_id,
+                         order_price=self.price,
+                         deal_id=self.deal_id,
+                         task_id=self.task_id,
+                         task_uptime=self.task_uptime,
+                         node_status=self.status)
 
     @staticmethod
     def format_price(price_, readable=False):
         return "{0:.4f}{1}USD/h".format(float(price_), " " if readable else "")
+
+
+def get_class(node_state: State):
+    if node_state in [State.TASK_FAILED, State.TASK_FAILED_TO_START, State.TASK_BROKEN]:
+        return "table-danger"
+    elif node_state in [State.DEAL_DISAPPEARED]:
+        return "table-warning"
+    elif node_state in [State.TASK_RUNNING, State.TASK_FINISHED]:
+        return "table-success"
+    elif node_state in [State.STARTING_TASK]:
+        return "table-primary"
+    elif node_state in [State.START, State.CREATE_ORDER, State.PLACING_ORDER, State.AWAITING_DEAL, State.DEAL_OPENED]:
+        return "table-info"
+    else:
+        return "table-light"
+
+
+class TableItem(object):
+    def __init__(self, node, order_id, order_price, deal_id, task_id, task_uptime, node_status):
+        self.node = node
+        self.order_id = order_id
+        self.order_price = order_price
+        self.deal_id = deal_id
+        self.task_id = task_id
+        self.task_uptime = task_uptime
+        self.node_status = node_status.name
+        self.css_class = get_class(node_status)
