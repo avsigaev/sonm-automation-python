@@ -25,7 +25,7 @@ class Config(object):
 
     @staticmethod
     def formatted_price_for_tag(tag):
-        if tag in Config.prices.keys() and "perHourUSD" in Config.prices[tag]:
+        if tag in Config.prices.keys() and Config.prices[tag] and "perHourUSD" in Config.prices[tag]:
             return "{:.4f} USD/h".format(Config.prices[tag]["perHourUSD"])
         else:
             return ""
