@@ -23,24 +23,31 @@ def setup_logging(default_config='logging.yaml', default_level=logging.INFO):
 
 
 def watch(executor, futures):
-    for node in Nodes.get_nodes():
-        futures.append(executor.submit(node.watch_node))
+    for node in Nodes.get_nodes_arr():
+        futures[node.node_tag] = executor.submit(node.watch_node)
         time.sleep(1)
-    while True in [future.running() for future in futures]:
+    while len(futures) > 0:
         # Clear finished futures
-        for future in futures:
-            if future.done():
-                futures.remove(future)
-        # Destroy nodes, if they aren't exist in reloaded config
-        for n in Nodes.get_nodes():
-            if n.node_tag not in Config.node_configs.keys():
-                n.destroy()
-                Nodes.get_nodes().remove(n)
-        # Add new nodes to executor:
-        for n in Nodes.get_nodes():
-            if not n.is_running():
-                logger.info("Adding new Node {} to executor".format(n.node_tag))
-                futures.append(executor.submit(n.watch_node))
+        for item in [{"tag": node_tag, "future": future} for node_tag, future in futures.items()]:
+            if item["future"].done():
+                exception_ = item["future"].exception()
+                logger.info("Removing Node {} from execution list.".format(item["tag"]))
+                del futures[item["tag"]]
+                if exception_:
+                    logger.exception("Node {} failed with exception".format(item["tag"]), exception_)
+                    Nodes.get_node(item["tag"]).RUNNING = False
+        for node_tag in Nodes.get_nodes_keys():
+            # Destroy nodes, if they aren't exist in reloaded config
+            if node_tag not in Config.node_configs.keys():
+                logger.info("Stopping Node {}. It doesn't exist in configuration".format(node_tag))
+                Nodes.get_node(node_tag).destroy()
+                logger.info("Removing Node {} from active nodes list.".format(node_tag))
+                Nodes.remove_node(node_tag)
+        for node_tag in Nodes.get_nodes_keys():
+            # Add new nodes to executor:
+            if not Nodes.get_node(node_tag).is_running:
+                logger.info("Adding Node {} to executor".format(node_tag))
+                futures[node_tag] = executor.submit(Nodes.get_node(node_tag).watch_node)
         time.sleep(1)
 
 
@@ -52,20 +59,22 @@ def main():
     init_nodes_state(sonm_api)
     scheduler = BackgroundScheduler()
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)
-    futures = []
+    futures_ = dict()
     try:
         scheduler.start()
         scheduler.add_job(print_state, 'interval', seconds=60, id='print_state')
         scheduler.add_job(reload_config, 'interval', kwargs={"sonm_api": sonm_api}, seconds=60, id='reload_config')
         executor.submit(run_http_server)
-        watch(executor, futures)
+        watch(executor, futures_)
         print_state()
         logger.info("Work completed")
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    finally:
+    except KeyboardInterrupt:
         logger.info("Keyboard interrupt, script exiting. Sonm node will continue work")
-        for n in Nodes.get_nodes():
+    except SystemExit as e:
+        logger.exception("System Exit. Sonm node will continue work", e)
+    finally:
+        logger.info("Script exiting. Sonm node will continue work")
+        for n in Nodes.get_nodes_arr():
             n.stop_work()
         SonmHttpServer.KEEP_RUNNING = False
         executor.shutdown(wait=False)

@@ -14,19 +14,16 @@ logger = logging.getLogger("monitor")
 def reload_config(sonm_api):
     Config.load_config()
     Config.load_prices(sonm_api)
-    get_missed_nodes(sonm_api, Nodes.nodes_, Config.node_configs)
+    append_missed_nodes(sonm_api, Config.node_configs)
 
 
-def get_missed_nodes(sonm_api, nodes_, node_configs):
-    live_nodes_tags = [n.node_tag for n in nodes_]
+def append_missed_nodes(sonm_api, node_configs):
     for node_tag, node_config in node_configs.items():
-        if node_tag not in live_nodes_tags:
-            nodes_.append(WorkNode.create_empty(sonm_api, node_tag))
-    return nodes_
+        if node_tag not in Nodes.get_nodes_keys():
+            Nodes.add_node(WorkNode.create_empty(sonm_api, node_tag))
 
 
 def init_nodes_state(sonm_api):
-    nodes_ = []
     nodes_num_ = len(Config.node_configs)
     # get deals
     deals_ = sonm_api.deal_list(nodes_num_)
@@ -50,7 +47,7 @@ def init_nodes_state(sonm_api):
                     price = deal_status["price"]
                     node_ = WorkNode(status, sonm_api, order_["tag"], deal["id"], task_id, bid_id_, price)
                     logger.info("Found deal, id {} (Node {})".format(deal["id"], order_["tag"]))
-                    nodes_.append(node_)
+                    Nodes.add_node(node_)
 
     # get orders
     orders_ = sonm_api.order_list(nodes_num_)
@@ -62,8 +59,8 @@ def init_nodes_state(sonm_api):
                     price = order_["price"]
                     node_ = WorkNode(status, sonm_api, order_["tag"], "", "", order_["id"], price)
                     logger.info("Found order, id {} (Node {})".format(order_["id"], order_["tag"]))
-                    nodes_.append(node_)
-    Nodes.nodes_ = get_missed_nodes(sonm_api, nodes_, Config.node_configs)
+                    Nodes.add_node(node_)
+    append_missed_nodes(sonm_api, Config.node_configs)
 
 
 def init_sonm_api():

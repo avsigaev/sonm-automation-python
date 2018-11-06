@@ -50,6 +50,7 @@ class WorkNode:
     def create_empty(cls, sonm_api, node_tag):
         return cls(State.START, sonm_api, node_tag, "", "", "", "")
 
+    @property
     def is_running(self):
         return self.RUNNING
 
@@ -211,44 +212,37 @@ class WorkNode:
         return 60
 
     def watch_node(self):
-        if not self.RUNNING:
-            self.do_work()
-
-    def do_work(self):
         self.RUNNING = True
-        try:
-            sleep_time = 1
-            while self.KEEP_WORK and self.status != State.WORK_COMPLETED:
-                if self.status == State.START or self.status == State.CREATE_ORDER:
-                    self.create_order()
-                    sleep_time = 60
-                elif self.status == State.AWAITING_DEAL:
-                    sleep_time = self.check_order()
-                elif self.status == State.DEAL_OPENED:
-                    self.start_task()
-                    sleep_time = 60
-                elif self.status == State.DEAL_DISAPPEARED:
-                    self.status = State.CREATE_ORDER
-                    sleep_time = 1
-                elif self.status == State.TASK_RUNNING:
-                    sleep_time = self.check_task_status()
-                elif self.status == State.TASK_FAILED_TO_START:
-                    self.close_deal(State.CREATE_ORDER, blacklist=True)
-                    sleep_time = 1
-                elif self.status == State.TASK_FAILED:
-                    self.close_deal(State.CREATE_ORDER)
-                    sleep_time = 1
-                elif self.status == State.TASK_BROKEN:
-                    self.close_deal(State.CREATE_ORDER)
-                    sleep_time = 1
-                elif self.status == State.TASK_FINISHED:
-                    self.close_deal(State.WORK_COMPLETED)
-                    sleep_time = 1
-                self.wait_sleep(sleep_time)
-            self.logger.info("Node {} stopped, {}"
-                             .format(self.node_tag, "work completed." if self.KEEP_WORK else "received stop signal."))
-        except Exception as exc:
-            self.logger.exception("Node {} failed with exception".format(self.node_tag), exc)
+        sleep_time = 1
+        while self.KEEP_WORK and self.status != State.WORK_COMPLETED:
+            if self.status == State.START or self.status == State.CREATE_ORDER:
+                self.create_order()
+                sleep_time = 60
+            elif self.status == State.AWAITING_DEAL:
+                sleep_time = self.check_order()
+            elif self.status == State.DEAL_OPENED:
+                self.start_task()
+                sleep_time = 60
+            elif self.status == State.DEAL_DISAPPEARED:
+                self.status = State.CREATE_ORDER
+                sleep_time = 1
+            elif self.status == State.TASK_RUNNING:
+                sleep_time = self.check_task_status()
+            elif self.status == State.TASK_FAILED_TO_START:
+                self.close_deal(State.CREATE_ORDER, blacklist=True)
+                sleep_time = 1
+            elif self.status == State.TASK_FAILED:
+                self.close_deal(State.CREATE_ORDER)
+                sleep_time = 1
+            elif self.status == State.TASK_BROKEN:
+                self.close_deal(State.CREATE_ORDER)
+                sleep_time = 1
+            elif self.status == State.TASK_FINISHED:
+                self.close_deal(State.WORK_COMPLETED)
+                sleep_time = 1
+            self.wait_sleep(sleep_time)
+        self.logger.info("Node {} stopped, {}"
+                         .format(self.node_tag, "work completed." if self.KEEP_WORK else "received stop signal."))
 
     def wait_sleep(self, sleep_time):
         for n in range(0, sleep_time if sleep_time else 60):
