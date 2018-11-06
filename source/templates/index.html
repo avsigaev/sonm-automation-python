@@ -1,0 +1,25 @@
+{% extends "bootstrap/base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+{% import "bootstrap/utils.html" as util %}
+{% block styles -%}
+{{super()}}
+{% endblock %}
+
+{% block content %}
+{{util.flashed_messages(dismissible=True)}}
+<div class="container">
+    <h3>Sonm automation script</h3>
+
+    {% for node_ in nodes %}
+    <div>
+        <h5>Tag: {{ node_.node_tag }}</h5>
+        <h5>Current predicted price: {{ node_.predicted_price }}</h5>
+        <div>{{ node_.nodes_table}}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block head %}
+{{super()}}
+{% endblock %}

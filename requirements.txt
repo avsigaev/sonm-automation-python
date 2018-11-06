@@ -1,3 +1,6 @@
+flask_table
+flask_appconfig
+flask_bootstrap
 pytimeparse
 tabulate
 apscheduler

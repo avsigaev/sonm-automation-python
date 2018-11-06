@@ -31,6 +31,7 @@ class WorkNode:
         self.KEEP_WORK = True
         self.logger = logging.getLogger("monitor")
         self.node_tag = node_tag
+        self.tag = self.node_tag.split('_')[0]
         self.config = Config.get_node_config(self.node_tag)
         self.status = status
         self.sonm_api = sonm_api
@@ -59,7 +60,9 @@ class WorkNode:
     def create_task_yaml(self):
         self.logger.info("Creating task file for Node {}".format(self.node_tag))
         file_ = join(Config.config_folder, self.config["template_file"])
-        dump_file(template_task(file_, self.node_tag), self.task_file)
+        kwargs = {'node_tag': self.node_tag}
+        data = template_task(file_, kwargs)
+        dump_file(data, self.task_file)
         with open(self.task_file) as f:
             self.task_ = yaml.safe_load(f)
 
@@ -67,23 +70,25 @@ class WorkNode:
         self.logger.info("Creating order file for Node {}".format(self.node_tag))
         self.bid_ = template_bid(self.config, self.node_tag, self.config["counterparty"])
 
-        price_, predicted_ = self.get_price(self.bid_)
+        price_, predicted_, predicted_w_coeff_ = self.get_price()
         self.price = self.format_price(price_, readable=True)
         self.bid_["price"] = self.format_price(price_)
 
-        self.logger.info("Predicted price for Node {} is {:.4f} USD/h, order price is {}"
-                         .format(self.node_tag, predicted_, self.price))
+        self.logger.info("Predicted price for Node {} is {:.4f} USD/h, with coefficient {:.4f} USD/h, order price is {}"
+                         .format(self.node_tag, predicted_, predicted_w_coeff_, self.price))
         dump_file(self.bid_, self.bid_file)
 
-    def get_price(self, bid_):
-        predicted_price = self.sonm_api.predict_bid(bid_["resources"])
-        result_price = self.config["max_price"]
-        price_ = 0
+    def get_price(self):
+        predicted_price = Config.price_for_tag(self.tag)
+        price_ = self.config["max_price"]
+        predicted_w_coeff_ = 0
+        predicted_ = 0
         if predicted_price:
-            price_ = predicted_price["perHourUSD"] * (1 + int(self.config["price_coefficient"]) / 100)
-            if price_ < float(self.config["max_price"]):
-                result_price = price_
-        return result_price, price_
+            predicted_ = predicted_price["perHourUSD"]
+            predicted_w_coeff_ = predicted_ * (1 + int(self.config["price_coefficient"]) / 100)
+            if predicted_w_coeff_ < float(self.config["max_price"]):
+                price_ = predicted_w_coeff_
+        return price_, predicted_, predicted_w_coeff_
 
     def create_order(self):
         self.reload_config()
@@ -273,6 +278,43 @@ class WorkNode:
         self.sonm_api.task_logs(self.deal_id, self.task_id, "1000000",
                                 "{}{}-deal-{}.log".format(prefix, self.node_tag, self.deal_id))
 
+    @property
+    def as_table_item(self):
+        return TableItem(node=self.node_tag,
+                         order_id=self.bid_id,
+                         order_price=self.price,
+                         deal_id=self.deal_id,
+                         task_id=self.task_id,
+                         task_uptime=self.task_uptime,
+                         node_status=self.status)
+
     @staticmethod
     def format_price(price_, readable=False):
         return "{0:.4f}{1}USD/h".format(float(price_), " " if readable else "")
+
+
+def get_css_class(node_state: State):
+    if node_state in [State.TASK_FAILED, State.TASK_FAILED_TO_START, State.TASK_BROKEN]:
+        return "table-danger"
+    elif node_state in [State.DEAL_DISAPPEARED]:
+        return "table-warning"
+    elif node_state in [State.TASK_RUNNING, State.TASK_FINISHED]:
+        return "table-success"
+    elif node_state in [State.DEAL_OPENED, State.STARTING_TASK]:
+        return "table-primary"
+    elif node_state in [State.START, State.CREATE_ORDER, State.PLACING_ORDER, State.AWAITING_DEAL]:
+        return "table-info"
+    else:
+        return "table-light"
+
+
+class TableItem(object):
+    def __init__(self, node, order_id, order_price, deal_id, task_id, task_uptime, node_status):
+        self.node = node
+        self.order_id = order_id
+        self.order_price = order_price
+        self.deal_id = deal_id
+        self.task_id = task_id
+        self.task_uptime = task_uptime
+        self.node_status = node_status.name
+        self.css_class = get_css_class(node_status)

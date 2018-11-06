@@ -4,9 +4,7 @@ import logging
 import os
 import platform
 import re
-from concurrent.futures import Future
 from enum import Enum
-from threading import Thread
 
 import ruamel.yaml
 from jinja2 import Template
@@ -39,8 +37,12 @@ class Nodes(object):
 
     @staticmethod
     def get_nodes():
-        Nodes.nodes_.sort(key=lambda x: natural_keys(x.node_tag))
+        Nodes.sort_nodes()
         return Nodes.nodes_
+
+    @staticmethod
+    def sort_nodes():
+        Nodes.nodes_.sort(key=lambda x: natural_keys(x.node_tag))
 
 
 def atoi(text):
@@ -55,13 +57,14 @@ def parse_tag(order_):
     return base64.b64decode(order_).decode().strip("\0")
 
 
-def create_dir(dir_):
-    if not os.path.exists(dir_):
-        try:
-            os.makedirs(dir_)
-        except OSError as exc:  # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+def create_dir(*dirs_):
+    for dir_ in dirs_:
+        if not os.path.exists(dir_):
+            try:
+                os.makedirs(dir_)
+            except OSError as exc:  # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
 
 
 def convert_price(price_):
@@ -80,23 +83,6 @@ def get_sonmcli():
         return "sonmcli_darwin_x86_64"
     else:
         return "sonmcli"
-
-
-def call_with_future(fn, future, args, kwargs):
-    try:
-        result = fn(*args, **kwargs)
-        future.set_result(result)
-    except Exception as exc:
-        future.set_exception(exc)
-
-
-def threaded(fn):
-    def wrapper(*args, **kwargs):
-        future = Future()
-        Thread(target=call_with_future, args=(fn, future, args, kwargs)).start()
-        return future
-
-    return wrapper
 
 
 def validate_eth_addr(eth_addr):
@@ -118,7 +104,7 @@ def print_state():
                          tablefmt="grid"))
 
 
-def template_bid(config, tag, counterparty=None):
+def template_bid(config, tag="", counterparty=None):
     gpumem = config["gpumem"]
     ethhashrate = config["ethhashrate"]
     if config["gpucount"] == 0:
@@ -159,8 +145,10 @@ def dump_file(data, filename):
         yaml.dump(data, file, Dumper=yaml.RoundTripDumper)
 
 
-def template_task(file_, node_tag):
+def template_task(file_, kwargs=None):
+    if not kwargs:
+        kwargs = {}
     with open(file_, 'r') as fp:
         t = Template(fp.read())
-        data = t.render(node_tag=node_tag)
+        data = t.render(**kwargs)
         return ruamel.yaml.round_trip_load(data, preserve_quotes=True)
