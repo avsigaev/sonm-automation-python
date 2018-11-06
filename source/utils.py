@@ -33,16 +33,29 @@ class TaskStatus(Enum):
 
 
 class Nodes(object):
-    nodes_ = []
+    nodes_ = dict()
 
     @staticmethod
-    def get_nodes():
-        Nodes.sort_nodes()
-        return Nodes.nodes_
+    def add_node(node):
+        Nodes.nodes_[node.node_tag] = node
 
     @staticmethod
-    def sort_nodes():
-        Nodes.nodes_.sort(key=lambda x: natural_keys(x.node_tag))
+    def get_node(node_tag):
+        return Nodes.nodes_[node_tag]
+
+    @staticmethod
+    def remove_node(node_tag):
+        del Nodes.nodes_[node_tag]
+
+    @staticmethod
+    def get_nodes_keys():
+        return list(Nodes.nodes_.keys())
+
+    @staticmethod
+    def get_nodes_arr():
+        temp = list(Nodes.nodes_.values())
+        temp.sort(key=lambda x: natural_keys(x.node_tag))
+        return temp
 
 
 def atoi(text):
@@ -97,7 +110,7 @@ def validate_eth_addr(eth_addr):
 
 def print_state():
     tabul_nodes = [[n.node_tag, n.bid_id, n.price, n.deal_id, n.task_id, n.task_uptime, n.status.name] for n in
-                   Nodes.get_nodes()]
+                   Nodes.get_nodes_arr()]
     logger.info("Nodes:\n" +
                 tabulate(tabul_nodes,
                          ["Node", "Order id", "Order price", "Deal id", "Task id", "Task uptime", "Node status"],

@@ -68,7 +68,7 @@ def create_app(configfile=None):
     def index():
         nodes_content = []
         groups = defaultdict(list)
-        for obj in Nodes.get_nodes():
+        for obj in Nodes.get_nodes_arr():
             groups[obj.tag].append(obj)
 
             nodes_content = [{
