@@ -52,7 +52,6 @@ def watch(executor, futures):
 
 
 def main():
-    create_dir("out/logs", "out/orders", "out/tasks")
     Config.load_config()
     sonm_api = init_sonm_api()
     Config.load_prices(sonm_api)
@@ -69,9 +68,9 @@ def main():
         print_state()
         logger.info("Work completed")
     except KeyboardInterrupt:
-        logger.info("Keyboard interrupt, script exiting. Sonm node will continue work")
+        logger.info("Keyboard interrupt, script exiting")
     except SystemExit as e:
-        logger.exception("System Exit. Sonm node will continue work", e)
+        logger.exception("System Exit", e)
     finally:
         logger.info("Script exiting. Sonm node will continue work")
         for n in Nodes.get_nodes_arr():
@@ -81,9 +80,9 @@ def main():
         scheduler.shutdown(wait=False)
 
 
+create_dir("out/logs", "out/orders", "out/tasks")
 setup_logging()
 logging.getLogger('apscheduler').setLevel(logging.FATAL)
-logging.getLogger('HTTPServer').setLevel(logging.FATAL)
 logger = logging.getLogger('monitor')
 
 if __name__ == "__main__":
