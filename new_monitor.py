@@ -40,7 +40,7 @@ def watch(executor, futures):
             # Destroy nodes, if they aren't exist in reloaded config
             if node_tag not in Config.node_configs.keys():
                 logger.info("Stopping Node {}. It doesn't exist in configuration".format(node_tag))
-                Nodes.get_node(node_tag).destroy()
+                Nodes.get_node(node_tag).finish_work()
                 logger.info("Removing Node {} from active nodes list.".format(node_tag))
                 Nodes.remove_node(node_tag)
         for node_tag in Nodes.get_nodes_keys():

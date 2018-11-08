@@ -56,6 +56,7 @@ class NodesTable(Table):
     task_id = Col('Task id')
     task_uptime = Col('Task uptime')
     node_status = Col('Node status')
+    since_hb = Col('HB')
 
 
 def create_app(configfile=None):

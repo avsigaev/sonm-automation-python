@@ -14,5 +14,7 @@ http_server:
   port: 8081
 #default timeout
 #timeout: 120
+#time since last heartbeat
+restart_timeout: 600
 tasks:
   - config_task_claymore.yaml
