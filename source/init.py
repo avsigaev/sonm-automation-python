@@ -11,10 +11,14 @@ from source.worknode import WorkNode, State
 logger = logging.getLogger("monitor")
 
 
-def reload_config(sonm_api):
+def reload_config(sonm_api: SonmApi):
     Config.load_config()
     Config.load_prices(sonm_api)
     append_missed_nodes(sonm_api, Config.node_configs)
+
+
+def check_balance(sonm_api: SonmApi):
+    Config.balance = sonm_api.token_balance()
 
 
 def append_missed_nodes(sonm_api, node_configs):
@@ -64,11 +68,13 @@ def init_nodes_state(sonm_api):
 
 
 def init_sonm_api():
+    timeout = int(Config.base_config["timeout"]) if "timeout" in Config.base_config else 60
+
     key_file_path = Config.base_config["ethereum"]["key_path"]
     keys = [f for f in listdir(key_file_path) if isfile(join(key_file_path, f))]
     if len(keys) == 0:
         raise Exception("Key storage doesn't contain any files")
     key_password = Config.base_config["ethereum"]["password"]
     node_addr = Config.base_config["node_address"]
-    sonm_api = SonmApi(join(key_file_path, keys[0]), key_password, node_addr)
+    sonm_api = SonmApi(join(key_file_path, keys[0]), key_password, node_addr, timeout)
     return sonm_api

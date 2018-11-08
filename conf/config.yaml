@@ -12,6 +12,7 @@ http_server:
   password: "sonm"
   run: true
   port: 8081
-
+#default timeout
+#timeout: 120
 tasks:
   - config_task_claymore.yaml

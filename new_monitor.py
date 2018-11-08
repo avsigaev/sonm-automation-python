@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from source.http_server import run_http_server, SonmHttpServer
 from source.utils import Nodes, print_state, create_dir
 from source.config import Config
-from source.init import init_nodes_state, reload_config, init_sonm_api
+from source.init import init_nodes_state, reload_config, init_sonm_api, check_balance
 
 
 def setup_logging(default_config='logging.yaml', default_level=logging.INFO):
@@ -54,6 +54,7 @@ def watch(executor, futures):
 def main():
     Config.load_config()
     sonm_api = init_sonm_api()
+    check_balance(sonm_api)
     Config.load_prices(sonm_api)
     init_nodes_state(sonm_api)
     scheduler = BackgroundScheduler()
@@ -63,6 +64,7 @@ def main():
         scheduler.start()
         scheduler.add_job(print_state, 'interval', seconds=60, id='print_state')
         scheduler.add_job(reload_config, 'interval', kwargs={"sonm_api": sonm_api}, seconds=60, id='reload_config')
+        scheduler.add_job(check_balance, 'interval', kwargs={"sonm_api": sonm_api}, seconds=600, id='check_balance')
         executor.submit(run_http_server)
         watch(executor, futures_)
         print_state()

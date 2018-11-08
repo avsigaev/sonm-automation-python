@@ -9,7 +9,12 @@
 {{util.flashed_messages(dismissible=True)}}
 <div class="container">
     <h3>Sonm automation script</h3>
-
+    <div>
+        <h5>Balances:</h5><a href=# id=reload_balance><button class='btn btn-info'>Reload</button></a>
+        <h6 style="text-indent :3em;">SONM token on sidechain: {{ token_balance.sideBalance }}</h6>
+        <h6 style="text-indent :3em;">SONM token on livenet: {{ token_balance.liveBalance }}</h6>
+        <h6 style="text-indent :3em;">Ethereum: {{ token_balance.liveEthBalance }}</h6>
+    </div>
     {% for node_ in nodes %}
     <div>
         <h5>Tag: {{ node_.node_tag }}</h5>
