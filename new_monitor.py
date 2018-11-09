@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from source.http_server import run_http_server, SonmHttpServer
 from source.utils import Nodes, print_state, create_dir
 from source.config import Config
-from source.init import init_nodes_state, reload_config, init_sonm_api
+from source.init import init_nodes_state, reload_config, init_sonm_api, check_balance
 
 
 def setup_logging(default_config='logging.yaml', default_level=logging.INFO):
@@ -40,7 +40,7 @@ def watch(executor, futures):
             # Destroy nodes, if they aren't exist in reloaded config
             if node_tag not in Config.node_configs.keys():
                 logger.info("Stopping Node {}. It doesn't exist in configuration".format(node_tag))
-                Nodes.get_node(node_tag).destroy()
+                Nodes.get_node(node_tag).finish_work()
                 logger.info("Removing Node {} from active nodes list.".format(node_tag))
                 Nodes.remove_node(node_tag)
         for node_tag in Nodes.get_nodes_keys():
@@ -52,9 +52,9 @@ def watch(executor, futures):
 
 
 def main():
-    create_dir("out/logs", "out/orders", "out/tasks")
     Config.load_config()
     sonm_api = init_sonm_api()
+    check_balance(sonm_api)
     Config.load_prices(sonm_api)
     init_nodes_state(sonm_api)
     scheduler = BackgroundScheduler()
@@ -64,14 +64,15 @@ def main():
         scheduler.start()
         scheduler.add_job(print_state, 'interval', seconds=60, id='print_state')
         scheduler.add_job(reload_config, 'interval', kwargs={"sonm_api": sonm_api}, seconds=60, id='reload_config')
+        scheduler.add_job(check_balance, 'interval', kwargs={"sonm_api": sonm_api}, seconds=600, id='check_balance')
         executor.submit(run_http_server)
         watch(executor, futures_)
         print_state()
         logger.info("Work completed")
     except KeyboardInterrupt:
-        logger.info("Keyboard interrupt, script exiting. Sonm node will continue work")
+        logger.info("Keyboard interrupt, script exiting")
     except SystemExit as e:
-        logger.exception("System Exit. Sonm node will continue work", e)
+        logger.exception("System Exit", e)
     finally:
         logger.info("Script exiting. Sonm node will continue work")
         for n in Nodes.get_nodes_arr():
@@ -81,9 +82,9 @@ def main():
         scheduler.shutdown(wait=False)
 
 
+create_dir("out/logs", "out/orders", "out/tasks")
 setup_logging()
 logging.getLogger('apscheduler').setLevel(logging.FATAL)
-logging.getLogger('HTTPServer').setLevel(logging.FATAL)
 logger = logging.getLogger('monitor')
 
 if __name__ == "__main__":

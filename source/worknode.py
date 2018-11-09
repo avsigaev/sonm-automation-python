@@ -25,6 +25,10 @@ class State(Enum):
     WORK_COMPLETED = 12
 
 
+def restart_timeout():
+    return Config.base_config["restart_timeout"] if "restart_timeout" in Config.base_config else 600
+
+
 class WorkNode:
     def __init__(self, status, sonm_api, node_tag, deal_id, task_id, bid_id, price):
         self.RUNNING = False
@@ -45,6 +49,7 @@ class WorkNode:
         self.price = "{0:.4f} USD/h".format(convert_price(price)) if price != "" else ""
         self.task_uptime = 0
         self.create_task_yaml()
+        self.last_heartbeat = time.time()
 
     @classmethod
     def create_empty(cls, sonm_api, node_tag):
@@ -215,6 +220,8 @@ class WorkNode:
         self.RUNNING = True
         sleep_time = 1
         while self.KEEP_WORK and self.status != State.WORK_COMPLETED:
+            if int(time.time() - self.last_heartbeat) > restart_timeout():
+                self.reset_to_start()
             if self.status == State.START or self.status == State.CREATE_ORDER:
                 self.create_order()
                 sleep_time = 60
@@ -241,6 +248,7 @@ class WorkNode:
                 self.close_deal(State.WORK_COMPLETED)
                 sleep_time = 1
             self.wait_sleep(sleep_time)
+            self.last_heartbeat = time.time()
         self.logger.info("Node {} stopped, {}"
                          .format(self.node_tag, "work completed." if self.KEEP_WORK else "received stop signal."))
 
@@ -251,18 +259,26 @@ class WorkNode:
             else:
                 return
 
-    def destroy(self):
+    def finish_work(self):
         self.logger.info("Destroying Node {}".format(self.node_tag))
         self.KEEP_WORK = False
+        self.purge()
+
+    def reset_to_start(self):
+        self.logger.info("Reset Node {} to start state".format(self.node_tag))
+        self.purge(state_after=State.START)
+
+    def purge(self, state_after=State.WORK_COMPLETED):
         if self.status in [State.DEAL_OPENED, State.STARTING_TASK, State.TASK_RUNNING, State.TASK_FAILED,
                            State.TASK_FAILED_TO_START, State.TASK_BROKEN, State.TASK_FINISHED]:
-            self.close_deal(State.WORK_COMPLETED)
+            self.close_deal(state_after)
         elif self.status == State.AWAITING_DEAL:
             self.cancel_order()
         elif self.status == State.PLACING_ORDER:
             while self.status != State.AWAITING_DEAL:
                 time.sleep(1)
-                self.cancel_order()
+            self.cancel_order()
+        self.status = state_after
 
     def stop_work(self):
         self.KEEP_WORK = False
@@ -280,15 +296,16 @@ class WorkNode:
                          deal_id=self.deal_id,
                          task_id=self.task_id,
                          task_uptime=self.task_uptime,
-                         node_status=self.status)
+                         node_status=self.status,
+                         since_hb=int(time.time() - self.last_heartbeat))
 
     @staticmethod
     def format_price(price_, readable=False):
         return "{0:.4f}{1}USD/h".format(float(price_), " " if readable else "")
 
 
-def get_css_class(node_state: State):
-    if node_state in [State.TASK_FAILED, State.TASK_FAILED_TO_START, State.TASK_BROKEN]:
+def get_css_class(node_state: State, since_hb: int):
+    if since_hb > restart_timeout() or node_state in [State.TASK_FAILED, State.TASK_FAILED_TO_START, State.TASK_BROKEN]:
         return "table-danger"
     elif node_state in [State.DEAL_DISAPPEARED]:
         return "table-warning"
@@ -303,7 +320,7 @@ def get_css_class(node_state: State):
 
 
 class TableItem(object):
-    def __init__(self, node, order_id, order_price, deal_id, task_id, task_uptime, node_status):
+    def __init__(self, node, order_id, order_price, deal_id, task_id, task_uptime, node_status, since_hb):
         self.node = node
         self.order_id = order_id
         self.order_price = order_price
@@ -311,4 +328,5 @@ class TableItem(object):
         self.task_id = task_id
         self.task_uptime = task_uptime
         self.node_status = node_status.name
-        self.css_class = get_css_class(node_status)
+        self.css_class = get_css_class(node_status, since_hb)
+        self.since_hb = "{} sec".format(since_hb)

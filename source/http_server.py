@@ -56,6 +56,7 @@ class NodesTable(Table):
     task_id = Col('Task id')
     task_uptime = Col('Task uptime')
     node_status = Col('Node status')
+    since_hb = Col('HB')
 
 
 def create_app(configfile=None):
@@ -79,7 +80,7 @@ def create_app(configfile=None):
             }
                 for tag, nodes in groups.items()]
 
-        return render_template('index.html', nodes=nodes_content)
+        return render_template('index.html', nodes=nodes_content, token_balance=Config.balance)
 
     return app
 

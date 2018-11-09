@@ -15,6 +15,7 @@ class Config(object):
 
     bids = {}
     prices = {}
+    balance = {}
 
     @staticmethod
     def price_for_tag(tag):

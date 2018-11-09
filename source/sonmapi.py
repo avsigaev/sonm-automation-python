@@ -36,9 +36,16 @@ def retry_on_status(_func=None, *, attempts=3, sleep_time=3):
 
 
 class SonmApi:
-    def __init__(self, key_file: str, password: str, endpoint: str):
+    def __init__(self, key_file: str, password: str, endpoint: str, timeout: int):
         self.node = Node(key_file, password, endpoint)
         self.logger = logging.getLogger("monitor")
+        self.timeout = timeout
+        self.logger.info("Sonm api instance created:\n"
+                         "\tEth key location: {}\n"
+                         "\tEth address: {}\n"
+                         "\tSonm node endpoint: {}\n"
+                         "\tDefault timeout: {} sec"
+                         .format(key_file, self.node.eth_addr, endpoint, timeout))
 
     def get_node(self):
         if self.node:
@@ -137,44 +144,57 @@ class SonmApi:
             result = {"perHourUSD": convert_price(predict_["perSecond"])}
         return result
 
+    def token_balance(self):
+        result = {'liveBalance': "n/a", 'sideBalance': "n/a", 'liveEthBalance': "n/a"}
+        balance_ = self.token_balance_rest()
+        if balance_ and "liveBalance" in balance_ and "sideBalance" in balance_ and "liveEthBalance" in balance_:
+            result = {'liveBalance': "{:.4f}".format(balance_["liveBalance"]),
+                      'sideBalance': "{:.4f}".format(balance_["sideBalance"]),
+                      'liveEthBalance': "{:.4f}".format(balance_["liveEthBalance"])}
+        return result
+
+    @retry_on_status
+    def token_balance_rest(self):
+        return self.get_node().token.balance(timeout=self.timeout)
+
     @retry_on_status
     def predict_bid_rest(self, bid_):
-        return self.get_node().predictor.predict(bid_)
+        return self.get_node().predictor.predict(bid_, timeout=self.timeout)
 
     @retry_on_status
     def deal_status_rest(self, deal_id):
-        return self.get_node().deal.status(deal_id)
+        return self.get_node().deal.status(deal_id, timeout=self.timeout)
 
     @retry_on_status
     def deal_list_rest(self, limit):
         filters = {"status": 1,
                    "consumerID": self.get_node().eth_addr,
                    "limit": limit}
-        return self.get_node().deal.list(filters)
+        return self.get_node().deal.list(filters, timeout=self.timeout)
 
     @retry_on_status
     def deal_close_rest(self, deal_id, blacklist):
-        return self.get_node().deal.close(deal_id, blacklist)
+        return self.get_node().deal.close(deal_id, blacklist, timeout=self.timeout)
 
     @retry_on_status
     def order_create_rest(self, order):
-        return self.get_node().order.create(order)
+        return self.get_node().order.create(order, timeout=self.timeout)
 
     @retry_on_status
     def order_list_rest(self, limit):
-        return self.get_node().order.list(self.get_node().eth_addr, limit)
+        return self.get_node().order.list(self.get_node().eth_addr, limit, timeout=self.timeout)
 
     @retry_on_status
     def order_status_rest(self, order_id):
-        return self.get_node().order.status(order_id)
+        return self.get_node().order.status(order_id, timeout=self.timeout)
 
     @retry_on_status
     def order_cancel_rest(self, order_id):
-        return self.get_node().order.cancel(order_id)
+        return self.get_node().order.cancel(order_id, timeout=self.timeout)
 
     @retry_on_status(attempts=10, sleep_time=10)
     def task_status_rest(self, deal_id, task_id):
-        return self.get_node().task.status(deal_id, task_id)
+        return self.get_node().task.status(deal_id, task_id, timeout=self.timeout)
 
     @retry_on_status(attempts=1)
     def task_start_rest(self, deal_id, task, timeout):
